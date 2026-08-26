@@ -1,6 +1,8 @@
 <div align="center">
   <img src="https://pub-08d4ac7de5354fadbfe07fcbc70237ba.r2.dev/icon-tribo.png" alt="Logo Tribo" width="130" height="130" style="border-radius: 28px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
 
+  *Tribo API*
+
   <br /><br />
 
   <p align="center">
