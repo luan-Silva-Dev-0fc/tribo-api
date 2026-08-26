@@ -1,0 +1,49 @@
+{
+  "name": "tribo-api",
+  "version": "1.0.0",
+  "description": "API da rede social Tribo com Node.js, Express, Supabase, JWT e Socket.IO",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "keywords": [
+    "social",
+    "api",
+    "node",
+    "express"
+  ],
+  "author": "Tribo",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1095.0",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "@supabase/supabase-js": "^2.47.2",
+    "axios": "^1.19.0",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.0",
+    "dotenv": "^16.0.1",
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "firebase-admin": "^14.2.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "groq-sdk": "^1.5.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.11.0",
+    "multer": "^2.2.0",
+    "nodemailer": "^9.0.5",
+    "open-graph-scraper": "^6.12.0",
+    "pg": "^8.23.0",
+    "postgres": "^3.4.9",
+    "prisma": "^7.9.0",
+    "resend": "^6.18.1",
+    "rss-parser": "^3.13.0",
+    "sightengine": "^1.3.1",
+    "socket.io": "^4.8.3"
+  }
+}

@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Environment variables (SENSÍVEL - NUNCA SUBIR)
+.env
+.env.*
+!.env.example
+
+# Uploads & Temp storage
+uploads/
+scratch/
+temp/
+*.tmp
+
+# Credentials & Service Accounts (SENSÍVEL)
+service-account-key.json
+*firebase-adminsdk*.json
+*.pem
+*.key
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage / Tests
+coverage/
+.nyc_output/
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
