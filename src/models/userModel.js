@@ -381,7 +381,7 @@ async function updateUserBadge(id, badgeType) {
   return formatUserData(data, null, true);
 }
 
-async function scheduleAccountDeletion(userId) {
+async function scheduleAccountDeletion(userId, password) {
   if (!userId) {
     const err = new Error("ID do usuário é obrigatório.");
     err.status = 400;
@@ -389,7 +389,7 @@ async function scheduleAccountDeletion(userId) {
   }
 
   const [user] = await sql`
-    SELECT id, username, email, status, data_exported_at, created_at
+    SELECT id, username, email, password, status, data_exported_at, created_at
     FROM users
     WHERE id = ${userId};
   `;
@@ -400,10 +400,17 @@ async function scheduleAccountDeletion(userId) {
     throw err;
   }
 
-  if (!user.data_exported_at) {
-    const err = new Error("Você precisa baixar os seus dados antes de solicitar a exclusão da sua conta. Acesse a opção 'Baixar Dados'.");
+  if (!password || !String(password).trim()) {
+    const err = new Error("A senha atual é obrigatória para confirmar a exclusão da conta.");
     err.status = 400;
-    err.code = "DATA_EXPORT_REQUIRED";
+    throw err;
+  }
+
+  const bcrypt = require("bcrypt");
+  const isPasswordValid = await bcrypt.compare(String(password).trim(), user.password || "");
+  if (!isPasswordValid) {
+    const err = new Error("Senha incorreta. Verifique sua senha e tente novamente.");
+    err.status = 401;
     throw err;
   }
 

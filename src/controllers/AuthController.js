@@ -209,6 +209,22 @@ async function login(req, res, next) {
       return res.status(401).json({ message: "Credenciais inválidas" });
     }
 
+    if (user.status === "PENDING_DELETION") {
+      const { sql } = require("../config/database");
+      await sql`
+        UPDATE users
+        SET
+          status = 'ACTIVE',
+          deletion_scheduled_at = NULL,
+          deletion_effective_at = NULL,
+          updated_at = NOW()
+        WHERE id = ${user.id};
+      `;
+      user.status = "ACTIVE";
+      user.deletion_scheduled_at = null;
+      user.deletion_effective_at = null;
+    }
+
     const token = signToken({ sub: user.id, email: user.email, role: user.role });
 
     logger.info("Usuário autenticado", { email: user.email, role: user.role });

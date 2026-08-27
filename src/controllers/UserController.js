@@ -267,16 +267,10 @@ async function exportUserData(req, res, next) {
 async function requestAccountDeletion(req, res, next) {
   try {
     const userId = req.user.sub;
-    const result = await userModel.scheduleAccountDeletion(userId);
+    const { password } = req.body || {};
+    const result = await userModel.scheduleAccountDeletion(userId, password);
     return res.status(200).json(result);
   } catch (error) {
-    if (error.code === "DATA_EXPORT_REQUIRED") {
-      return res.status(400).json({
-        error: "DATA_EXPORT_REQUIRED",
-        message: error.message,
-        downloadUrl: "/api/users/export-data"
-      });
-    }
     if (error.status) {
       return res.status(error.status).json({ message: error.message });
     }
