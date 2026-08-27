@@ -24,7 +24,8 @@ async function createStory(req, res, next) {
     const story = await storyModel.createStory({
       user_id: currentUserId,
       media_url: mediaUrl,
-      caption: req.body.caption
+      caption: req.body.caption,
+      is_single_view: req.body.is_single_view
     });
 
     return res.status(201).json({
@@ -176,6 +177,22 @@ async function unlikeStory(req, res, next) {
   }
 }
 
+async function viewStory(req, res, next) {
+  try {
+    const currentUserId = req.user.id || req.user.sub;
+    const result = await storyModel.viewStory(req.params.id, currentUserId);
+    return res.status(200).json({
+      message: "Visualização registrada com sucesso",
+      ...result
+    });
+  } catch (error) {
+    if (error.status === 404) {
+      return res.status(404).json({ message: error.message });
+    }
+    next(error);
+  }
+}
+
 module.exports = {
   createStory,
   getStories,
@@ -186,5 +203,6 @@ module.exports = {
   deleteStory,
   sendStory,
   likeStory,
-  unlikeStory
+  unlikeStory,
+  viewStory
 };

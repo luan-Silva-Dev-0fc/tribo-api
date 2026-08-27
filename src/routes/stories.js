@@ -14,5 +14,6 @@ router.delete('/:id', authMiddleware, storyController.deleteStory);
 router.post('/:id/send', authMiddleware, storyController.sendStory);
 router.post('/:id/like', authMiddleware, storyController.likeStory);
 router.delete('/:id/like', authMiddleware, storyController.unlikeStory);
+router.post('/:id/view', authMiddleware, storyController.viewStory);
 
 module.exports = router;
