@@ -12,14 +12,15 @@ const apiLimiter = rateLimit({
   }
 });
 
-// Rate limiter rigoroso para autenticação (proteção contra força bruta em senhas e e-mails)
+// Rate limiter para autenticação (proteção contra força bruta em senhas e e-mails)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 20, // Máximo de 20 tentativas a cada 15 minutos por IP
+  max: 60, // Até 60 tentativas a cada 15 minutos
+  skipSuccessfulRequests: true, // Login e verificações bem-sucedidas NÃO contam no limite!
   standardHeaders: true,
   legacyHeaders: false,
   message: {
-    message: 'Limite de tentativas de autenticação excedido. Por favor, aguarde alguns minutos.',
+    message: 'Muitas tentativas inválidas de autenticação. Por favor, aguarde alguns minutos.',
     status: 429
   }
 });
