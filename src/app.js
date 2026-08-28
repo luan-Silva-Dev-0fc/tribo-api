@@ -11,8 +11,8 @@ const { apiLimiter } = require('./middlewares/rateLimiter');
 
 const app = express();
 
-// Confiança no proxy do Railway para leitura correta do IP do cliente no Rate Limiting
-app.set('trust proxy', 1);
+// Confiança total no proxy do Railway para leitura do IP real
+app.set('trust proxy', true);
 
 app.use(helmet());
 app.use(
@@ -47,8 +47,8 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', service: 'tribo-api' });
 });
 
-// Proteção global de rate limit e suspensão
-app.use('/api', apiLimiter, platformStatusMiddleware, routes);
+// Middleware de status da plataforma e rotas
+app.use('/api', platformStatusMiddleware, routes);
 app.use(errorMiddleware);
 
 module.exports = app;
