@@ -4,6 +4,7 @@ const feedbackModel = require('../models/feedbackModel');
 const { findUserById } = require('../models/authModel');
 const { logger } = require('../utils/logger');
 const postModel = require("../models/postModel");
+const { invalidateAppSettingsCache } = require('./appController');
 
 async function listUsers(req, res, next) {
   try {
@@ -316,6 +317,8 @@ async function updateAppSettings(req, res, next) {
       }
     } catch (e) {}
 
+    invalidatePlatformStatusCache();
+    invalidateAppSettingsCache();
     return res.status(200).json({
       message: "Configurações atualizadas com sucesso",
       settings: saved,
@@ -385,6 +388,7 @@ async function updatePlatformStatus(req, res, next) {
     `;
 
     invalidatePlatformStatusCache();
+    invalidateAppSettingsCache();
     logger.warn(`[Admin] Status da plataforma alterado para ${normalizedStatus} por ${req.user?.email || 'admin'}. Motivo: ${suspension_reason}`);
 
     try {

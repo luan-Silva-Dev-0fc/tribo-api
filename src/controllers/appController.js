@@ -1,6 +1,20 @@
 const { sql } = require('../config/database');
 
+let cachedSettings = null;
+let cacheExpiry = 0;
+const CACHE_TTL_MS = 30 * 1000; // 30 segundos de cache em memória
+
+function invalidateAppSettingsCache() {
+  cachedSettings = null;
+  cacheExpiry = 0;
+}
+
 async function getAppSettings(req, res) {
+  const now = Date.now();
+  if (cachedSettings && now < cacheExpiry) {
+    return res.status(200).json(cachedSettings);
+  }
+
   try {
     let row = null;
     try {
@@ -10,7 +24,7 @@ async function getAppSettings(req, res) {
       console.warn("SQL settings fetch warning:", e.message);
     }
 
-    return res.status(200).json({
+    const payload = {
       latestVersion: row?.latest_version || "1.2.0",
       downloadUrl: row?.download_url || "https://pub-42c1a5dd1d8e4de4946a82f2fa559aa2.r2.dev/releases/tribo-latest.apk",
       forceUpdate: Boolean(row?.force_update),
@@ -27,7 +41,12 @@ async function getAppSettings(req, res) {
       suspensionReason: row?.suspension_reason || "",
       suspended_at: row?.suspended_at || null,
       suspendedAt: row?.suspended_at || null
-    });
+    };
+
+    cachedSettings = payload;
+    cacheExpiry = now + CACHE_TTL_MS;
+
+    return res.status(200).json(payload);
   } catch (err) {
     console.error("App settings route error:", err);
     return res.status(200).json({
@@ -52,5 +71,6 @@ async function getAppSettings(req, res) {
 
 module.exports = {
   getAppVersion: getAppSettings,
-  getAppSettings
+  getAppSettings,
+  invalidateAppSettingsCache
 };

@@ -238,13 +238,26 @@ async function isMutualFollow(userA, userB) {
   if (!userA || !userB) return false;
   if (userA === userB) return true;
   const [followAB, followBA] = await Promise.all([
-  findFollow(userA, userB),
-  findFollow(userB, userA)]
-  );
+    findFollow(userA, userB),
+    findFollow(userB, userA)
+  ]);
   return Boolean(
     followAB && followAB.status === "ACCEPTED" &&
     followBA && followBA.status === "ACCEPTED"
   );
+}
+
+async function getTargetUserStatus(userId) {
+  if (!userId) return null;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+  if (!isUuid) return null;
+  const [user] = await sql`
+    SELECT id, status, is_private
+    FROM users
+    WHERE id = ${userId}
+    LIMIT 1
+  `;
+  return user || null;
 }
 
 module.exports = {
@@ -262,5 +275,6 @@ module.exports = {
   rejectFollowRequest,
   getFollowers,
   getFollowing,
+  getTargetUserStatus,
   isLoyalFollower
 };

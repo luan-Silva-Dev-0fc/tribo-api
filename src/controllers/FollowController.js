@@ -237,11 +237,11 @@ async function listFollowers(req, res, next) {
     }
 
     const [targetUser, blockedIds] = await Promise.all([
-    userModel.getUserById(targetUserId, requesterId),
-    requesterId ? getBlockedUserIds(requesterId) : Promise.resolve(new Set())]
-    );
+      followModel.getTargetUserStatus(targetUserId),
+      requesterId ? getBlockedUserIds(requesterId) : Promise.resolve(new Set())
+    ]);
 
-    if (!targetUser || targetUser.status === "BANNED" || requesterId && blockedIds.has(targetUserId)) {
+    if (!targetUser || targetUser.status === "BANNED" || (requesterId && blockedIds.has(targetUserId))) {
       return notFound(res, "Usuário não encontrado");
     }
 
@@ -275,11 +275,11 @@ async function listFollowing(req, res, next) {
     }
 
     const [targetUser, blockedIds] = await Promise.all([
-    userModel.getUserById(targetUserId, requesterId),
-    requesterId ? getBlockedUserIds(requesterId) : Promise.resolve(new Set())]
-    );
+      followModel.getTargetUserStatus(targetUserId),
+      requesterId ? getBlockedUserIds(requesterId) : Promise.resolve(new Set())
+    ]);
 
-    if (!targetUser || targetUser.status === "BANNED" || requesterId && blockedIds.has(targetUserId)) {
+    if (!targetUser || targetUser.status === "BANNED" || (requesterId && blockedIds.has(targetUserId))) {
       return notFound(res, "Usuário não encontrado");
     }
 
