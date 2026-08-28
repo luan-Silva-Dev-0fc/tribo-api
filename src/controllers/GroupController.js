@@ -554,6 +554,57 @@ async function createChatMessage(req, res, next) {
       }
     };
 
+    try {
+      const io = req.app.get("io") || global.io;
+      if (io) {
+        io.to("group_" + groupId).emit("new_group_message", formattedMessage);
+        io.to("group_" + groupId).emit("new_message", formattedMessage);
+        io.to("tribo_" + groupId).emit("new_group_message", formattedMessage);
+        io.emit(`group_${groupId}_message`, formattedMessage);
+      }
+    } catch (sockErr) {
+      console.warn("[Group Socket Emit Error]:", sockErr.message);
+    }
+
+    try {
+      const { sendPushNotification } = require("../services/pushNotification");
+      const groupData = await groupModel.getGroupById(groupId);
+      const allMembers = await groupModel.getGroupMembers(groupId);
+
+      const recipientIds = [];
+      for (const m of allMembers) {
+        const mId = m.id || m.user_id;
+        if (mId && String(mId) !== String(userId)) {
+          const isMuted = await groupModel.isGroupNotificationMuted(groupId, mId).catch(() => false);
+          if (!isMuted) {
+            recipientIds.push(mId);
+          }
+        }
+      }
+
+      if (recipientIds.length > 0) {
+        const senderDisplayName = user.name || user.username || "Membro";
+        const groupDisplayName = groupData?.name || "Tribo";
+        let pushBody = content ? `${senderDisplayName}: ${content}` : `${senderDisplayName} enviou uma mídia`;
+        if (audioUrl) pushBody = `${senderDisplayName} 🎤 enviou um áudio`;
+        else if (stickerId) pushBody = `${senderDisplayName} ✨ enviou uma figurinha`;
+        else if (mediaUrl && !content) pushBody = `${senderDisplayName} 📷 enviou uma foto/vídeo`;
+
+        sendPushNotification({
+          userIds: recipientIds,
+          title: groupDisplayName,
+          body: pushBody,
+          data: {
+            type: "group_chat",
+            groupId: String(groupId),
+            messageId: String(msg.id)
+          }
+        }).catch((err) => console.warn("[Push Error Group]", err.message));
+      }
+    } catch (pushErr) {
+      console.warn("[Group Push Trigger Error]:", pushErr.message);
+    }
+
     return res.status(201).json({
       success: true,
       message: "Mensagem enviada com sucesso",
