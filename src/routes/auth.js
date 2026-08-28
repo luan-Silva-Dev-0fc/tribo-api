@@ -4,8 +4,11 @@ const authController = require('../controllers/AuthController');
 const authMiddleware = require('../middlewares/auth');
 const { validateRequest } = require('../utils/validators');
 const { uploadFile } = require('../middlewares/upload');
+const { authLimiter } = require('../middlewares/rateLimiter');
 
 const router = express.Router();
+
+router.use(authLimiter);
 
 router.post(
   '/register',

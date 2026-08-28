@@ -2,8 +2,11 @@ const express = require('express');
 const uploadController = require('../controllers/UploadController');
 const authMiddleware = require('../middlewares/auth');
 const { uploadFile } = require('../middlewares/upload');
+const { uploadLimiter } = require('../middlewares/rateLimiter');
 
 const router = express.Router();
+
+router.use(uploadLimiter);
 
 router.post('/photos', authMiddleware, uploadFile, uploadController.uploadPhoto);
 router.post('/photo', authMiddleware, uploadFile, uploadController.uploadPhoto);

@@ -1,9 +1,15 @@
 const { uploadToR2 } = require("../services/cloudflare");
+const { validateFileMagicBytes } = require("../utils/fileValidation");
 
 async function uploadFile(req, res, next) {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({ message: "Arquivo não enviado" });
+    }
+
+    const validation = validateFileMagicBytes(req.file.buffer, "any");
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.reason });
     }
 
     const result = await uploadToR2({
@@ -28,17 +34,19 @@ async function uploadFile(req, res, next) {
 
 async function uploadPhoto(req, res, next) {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({ message: "Arquivo não enviado" });
     }
-    if (!req.file.mimetype.startsWith("image/")) {
-      return res.status(400).json({ message: "Envie uma imagem válida" });
+
+    const validation = validateFileMagicBytes(req.file.buffer, "image");
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.reason });
     }
 
     const result = await uploadToR2({
       buffer: req.file.buffer,
       fileName: req.file.originalname,
-      contentType: req.file.mimetype,
+      contentType: req.file.mimetype || "image/jpeg",
       folder: "photos"
     });
 
@@ -57,17 +65,19 @@ async function uploadPhoto(req, res, next) {
 
 async function uploadVideo(req, res, next) {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({ message: "Arquivo não enviado" });
     }
-    if (!req.file.mimetype.startsWith("video/")) {
-      return res.status(400).json({ message: "Envie um vídeo válido" });
+
+    const validation = validateFileMagicBytes(req.file.buffer, "video");
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.reason });
     }
 
     const result = await uploadToR2({
       buffer: req.file.buffer,
       fileName: req.file.originalname,
-      contentType: req.file.mimetype,
+      contentType: req.file.mimetype || "video/mp4",
       folder: "videos"
     });
 
@@ -86,26 +96,13 @@ async function uploadVideo(req, res, next) {
 
 async function uploadAudio(req, res, next) {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({ message: "Arquivo de áudio não enviado" });
     }
 
-    const mime = (req.file.mimetype || "").toLowerCase();
-    const originalName = (req.file.originalname || "").toLowerCase();
-    const isAudio =
-    !mime ||
-    mime === "application/octet-stream" ||
-    mime.startsWith("audio/") ||
-    mime.includes("ogg") ||
-    mime.includes("mp4") ||
-    mime.includes("m4a") ||
-    mime.includes("aac") ||
-    mime.includes("wav") ||
-    mime.includes("webm") ||
-    /\.(mp3|m4a|aac|ogg|wav|webm|flac|oga|opus)$/i.test(originalName);
-
-    if (!isAudio) {
-      return res.status(400).json({ message: "Envie um arquivo de áudio válido (.m4a, .mp3, .aac, .ogg, .wav)" });
+    const validation = validateFileMagicBytes(req.file.buffer, "audio");
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.reason });
     }
 
     const fileName = req.file.originalname || `audio_${Date.now()}.m4a`;

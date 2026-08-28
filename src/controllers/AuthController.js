@@ -179,7 +179,9 @@ async function resendVerificationCode(req, res, next) {
       email_verification_expires_at: expiresAt
     });
 
-    await sendVerificationEmail(email, verificationCode, user.first_name || user.name);
+    sendVerificationEmail(email, verificationCode, user.first_name || user.name).catch((err) => {
+      logger.error('Erro assíncrono ao reenviar e-mail de verificação:', err);
+    });
 
     logger.info("Código de verificação reenviado", { email });
     return res.status(200).json({ message: "Codigo reenviado com sucesso" });
