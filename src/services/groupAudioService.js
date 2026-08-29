@@ -287,22 +287,11 @@ class GroupAudioService {
     const roomId = String(groupId);
     const state = this.getState(groupId);
 
-    // Emite para a sala específica de áudio e para a sala geral do grupo
+    // Emite apenas uma única vez para a sala de áudio do grupo
     io.to(`group-audio:${roomId}`).emit('group-audio-state', {
       ...state,
       reason: eventReason
     });
-
-    io.to(roomId).emit('group-audio-state', {
-      ...state,
-      reason: eventReason
-    });
-
-    // Também emite eventos específicos convenientes
-    if (eventReason === 'queue_updated') {
-      io.to(roomId).emit('queue_updated', state);
-      io.to(`group-audio:${roomId}`).emit('queue_updated', state);
-    }
   }
 }
 

@@ -37,7 +37,6 @@ function initializeGroupAudioSocket(io) {
 
       const audioRoom = `group-audio:${groupId}`;
       socket.join(audioRoom);
-      socket.join(groupId); // Também entra na sala geral do grupo para interoperabilidade
 
       const state = groupAudioService.getState(groupId);
 

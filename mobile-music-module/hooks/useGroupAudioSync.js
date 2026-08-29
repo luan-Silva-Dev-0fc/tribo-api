@@ -2,6 +2,28 @@
 import { Audio } from "expo-av";
 import { getChatSocket } from "../services/chatSocket";
 
+// SINGLETON GLOBAL: Garante que NUNCA exista mais de 1 áudio tocando no app inteiro
+let globalSound = null;
+let globalTrackUrl = null;
+let globalOpId = 0;
+let globalIsLoading = false;
+
+async function destroyGlobalSound() {
+  globalOpId++;
+  if (globalSound) {
+    const s = globalSound;
+    globalSound = null;
+    globalTrackUrl = null;
+    globalIsLoading = false;
+    try {
+      await s.stopAsync();
+    } catch (_) {}
+    try {
+      await s.unloadAsync();
+    } catch (_) {}
+  }
+}
+
 export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
   const [audioState, setAudioState] = useState({
     groupId,
@@ -15,10 +37,6 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
   const [isMuted, setIsMuted] = useState(false);
   const [localProgressMs, setLocalProgressMs] = useState(0);
 
-  const soundRef = useRef(null);
-  const currentUrlRef = useRef(null);
-  const isLoadingRef = useRef(false);
-  const operationIdRef = useRef(0);
   const isMutedRef = useRef(false);
   isMutedRef.current = isMuted;
 
@@ -32,7 +50,7 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     currentUser?.email?.toLowerCase() === "luansilva@gmail.com"
   );
 
-  // 1. Configura Background Audio no Expo
+  // 1. Configuração do modo de áudio no Expo
   useEffect(() => {
     Audio.setAudioModeAsync({
       staysActiveInBackground: true,
@@ -42,102 +60,74 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     }).catch(console.warn);
   }, []);
 
-  // 2. Função segura para descarregar o som atual
-  const safelyUnloadSound = async () => {
-    const existingSound = soundRef.current;
-    soundRef.current = null;
-    currentUrlRef.current = null;
+  // 2. Motor de Sincronização e Reprodução
+  const applyAudioState = useCallback(async (state) => {
+    if (!state) return;
+    setAudioState(state);
 
-    if (existingSound) {
-      try {
-        await existingSound.stopAsync();
-      } catch (_) {}
-      try {
-        await existingSound.unloadAsync();
-      } catch (_) {}
-    }
-  };
-
-  // 3. Atualização do timer da barra de progresso
-  useEffect(() => {
-    let timer = null;
-    if (audioState.is_playing && audioState.current_track) {
-      timer = setInterval(() => {
-        setLocalProgressMs((prev) => {
-          const maxMs = (audioState.current_track?.duration || 0) * 1000;
-          if (maxMs > 0 && prev >= maxMs) return maxMs;
-          return prev + 500;
-        });
-      }, 500);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [audioState.is_playing, audioState.current_track]);
-
-  // 4. Motor de sincronização com Lock Anti-Duplicação
-  const syncPlayback = useCallback(async (state) => {
     const track = state.current_track || state.currentTrack;
     const isPlaying = Boolean(state.is_playing ?? state.isPlaying);
     const basePositionMs = Number(state.position_ms ?? state.positionMs ?? 0);
 
-    // Compensação de latência
+    // Se nenhuma faixa estiver ativa no grupo
+    if (!track || !track.file_url) {
+      await destroyGlobalSound();
+      setLocalProgressMs(0);
+      return;
+    }
+
+    const trackUrl = track.file_url;
     const latency = Math.max(0, (Date.now() - (state.server_time || Date.now())) / 2);
     const targetMs = basePositionMs + (isPlaying ? latency : 0);
 
     setLocalProgressMs(targetMs);
 
-    // Se nenhuma música está na reprodução
-    if (!track || !track.file_url) {
-      operationIdRef.current++;
-      await safelyUnloadSound();
-      return;
-    }
-
-    const currentOp = ++operationIdRef.current;
-    const trackUrl = track.file_url;
-
-    // Caso A: Já é a mesma música e o som já está carregado -> apenas sincroniza
-    const activeSound = soundRef.current;
-    if (activeSound && currentUrlRef.current === trackUrl && !isLoadingRef.current) {
+    // CASO 1: A mesma música já está carregada no player
+    if (globalSound && globalTrackUrl === trackUrl && !globalIsLoading) {
       try {
-        const status = await activeSound.getStatusAsync();
-        if (currentOp !== operationIdRef.current) return;
-
+        const status = await globalSound.getStatusAsync();
         if (status.isLoaded) {
-          const currentPos = status.positionMillis || 0;
-          const drift = Math.abs(currentPos - targetMs);
-
-          // Ajusta posição apenas com desvio grande (> 600ms) para evitar gaguejo
-          if (drift > 600) {
-            await activeSound.setPositionAsync(Math.floor(targetMs));
+          // Play / Pause instantâneo
+          if (isPlaying && !status.isPlaying) {
+            await globalSound.playAsync();
+          } else if (!isPlaying && status.isPlaying) {
+            await globalSound.pauseAsync();
           }
 
-          if (isPlaying && !status.isPlaying) {
-            await activeSound.playAsync();
-          } else if (!isPlaying && status.isPlaying) {
-            await activeSound.pauseAsync();
+          // Ajuste de posição apenas se houver desvio considerável (> 1500ms) para não engasgar
+          const drift = Math.abs((status.positionMillis || 0) - targetMs);
+          if (drift > 1500) {
+            await globalSound.setPositionAsync(Math.floor(targetMs));
           }
         }
-      } catch (err) {
-        console.warn("[useGroupAudioSync] Aviso ao ajustar posição:", err.message);
+      } catch (e) {
+        console.warn("[useGroupAudioSync] Ajuste de estado:", e.message);
       }
       return;
     }
 
-    // Caso B: Nova música precisa ser carregada (com trava anti-duplicação)
-    if (isLoadingRef.current && currentUrlRef.current === trackUrl) {
-      return; // Já está carregando esta mesma música
+    // CASO 2: Carregar nova música com trava absoluta de instância única
+    if (globalIsLoading && globalTrackUrl === trackUrl) {
+      return; // Já está baixando/carregando esta faixa
     }
 
-    isLoadingRef.current = true;
-    currentUrlRef.current = trackUrl;
+    const thisOp = ++globalOpId;
+    globalIsLoading = true;
+    globalTrackUrl = trackUrl;
 
     try {
-      // Para e descarrega qualquer som tocando antes de criar o novo
-      await safelyUnloadSound();
-      if (currentOp !== operationIdRef.current) {
-        isLoadingRef.current = false;
+      // Destrói qualquer som anterior antes de instanciar o novo
+      if (globalSound) {
+        const prev = globalSound;
+        globalSound = null;
+        try {
+          await prev.stopAsync();
+          await prev.unloadAsync();
+        } catch (_) {}
+      }
+
+      if (thisOp !== globalOpId) {
+        globalIsLoading = false;
         return;
       }
 
@@ -145,7 +135,7 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
         { uri: trackUrl },
         {
           shouldPlay: isPlaying && !isMutedRef.current,
-          positionMillis: Math.floor(targetMs),
+          positionMillis: Math.max(0, Math.floor(targetMs)),
           isMuted: isMutedRef.current,
           progressUpdateIntervalMillis: 500
         },
@@ -156,26 +146,26 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
         }
       );
 
-      // Se uma nova operação foi disparada enquanto baixava, descarta este som
-      if (currentOp !== operationIdRef.current) {
+      // Se outra requisição chegou enquanto carregava este áudio, descarrega imediatamente
+      if (thisOp !== globalOpId) {
         try {
           await newSound.stopAsync();
           await newSound.unloadAsync();
         } catch (_) {}
-        isLoadingRef.current = false;
+        globalIsLoading = false;
         return;
       }
 
-      soundRef.current = newSound;
-      currentUrlRef.current = trackUrl;
-      isLoadingRef.current = false;
+      globalSound = newSound;
+      globalTrackUrl = trackUrl;
+      globalIsLoading = false;
     } catch (err) {
-      isLoadingRef.current = false;
-      console.warn("[useGroupAudioSync] Falha ao carregar faixa:", err.message);
+      globalIsLoading = false;
+      console.warn("[useGroupAudioSync] Erro ao instanciar som:", err.message);
     }
   }, []);
 
-  // 5. Conexão Socket.io
+  // 3. Gerenciamento da Conexão WebSockets
   useEffect(() => {
     const socket = getChatSocket();
     if (!socket || !groupId) return;
@@ -183,8 +173,7 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     socket.emit("join_group_audio", { groupId });
 
     const handleState = (state) => {
-      setAudioState(state);
-      syncPlayback(state);
+      applyAudioState(state);
     };
 
     const handleError = (err) => {
@@ -194,18 +183,15 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     };
 
     socket.on("group-audio-state", handleState);
-    socket.on("queue_updated", handleState);
     socket.on("group-audio-error", handleError);
 
     return () => {
       socket.emit("leave_group_audio", { groupId });
       socket.off("group-audio-state", handleState);
-      socket.off("queue_updated", handleState);
       socket.off("group-audio-error", handleError);
-      operationIdRef.current++;
-      safelyUnloadSound();
+      destroyGlobalSound();
     };
-  }, [groupId, syncPlayback, onPermissionError]);
+  }, [groupId, applyAudioState, onPermissionError]);
 
   const play = () => {
     if (!isGold) return;
@@ -242,10 +228,9 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     setIsMuted(nextMuted);
     isMutedRef.current = nextMuted;
 
-    const currentSound = soundRef.current;
-    if (currentSound) {
+    if (globalSound) {
       try {
-        await currentSound.setIsMutedAsync(nextMuted);
+        await globalSound.setIsMutedAsync(nextMuted);
       } catch (_) {}
     }
   };
