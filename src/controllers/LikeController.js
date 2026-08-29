@@ -80,7 +80,7 @@ async function createLike(req, res, next) {
 
           sendPushNotification({
             userId: result.postOwnerId,
-            title: "Nova interação",
+            title: "Nova curtida",
             body: msg,
             data: {
               type: "post_like",
@@ -102,7 +102,7 @@ async function createLike(req, res, next) {
 
           sendPushNotification({
             userId: result.commentOwnerId,
-            title: "Nova interação",
+            title: "Nova curtida",
             body: msg,
             data: {
               type: "comment_like",
