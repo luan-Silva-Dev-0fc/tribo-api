@@ -2,7 +2,7 @@
 import { Audio } from "expo-av";
 import { getChatSocket } from "../services/chatSocket";
 
-// SINGLETON GLOBAL
+// SINGLETON GLOBAL DE ÁUDIO
 let globalSound = null;
 let globalTrackUrl = null;
 let globalOpId = 0;
@@ -42,6 +42,12 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
   const isMutedRef = useRef(false);
   isMutedRef.current = isMuted;
 
+  const onPermissionErrorRef = useRef(onPermissionError);
+  onPermissionErrorRef.current = onPermissionError;
+
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+
   const lastProgressUpdateRef = useRef(0);
 
   const isGold = Boolean(
@@ -54,7 +60,7 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     currentUser?.email?.toLowerCase() === "luansilva@gmail.com"
   );
 
-  // 1. Configuração otimizada de áudio (sem ducking no Android para evitar engasgos)
+  // 1. Configuração otimizada do motor de áudio
   useEffect(() => {
     Audio.setAudioModeAsync({
       staysActiveInBackground: true,
@@ -64,7 +70,7 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     }).catch(console.warn);
   }, []);
 
-  // 2. Motor de Sincronização e Reprodução Suave
+  // 2. Motor de Sincronização Estável
   const applyAudioState = useCallback(async (state) => {
     if (!state) return;
     setAudioState(state);
@@ -73,7 +79,6 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     const isPlaying = Boolean(state.is_playing ?? state.isPlaying);
     const basePositionMs = Number(state.position_ms ?? state.positionMs ?? 0);
 
-    // Se nenhuma faixa estiver ativa no grupo
     if (!track || !track.file_url) {
       await destroyGlobalSound();
       setLocalProgressMs(0);
@@ -84,36 +89,31 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     const latency = Math.max(0, (Date.now() - (state.server_time || Date.now())) / 2);
     const targetMs = basePositionMs + (isPlaying ? latency : 0);
 
-    // CASO 1: A mesma faixa já está carregada no player
+    // CASO 1: Mesma música já carregada no player
     if (globalSound && globalTrackUrl === trackUrl && !globalIsLoading) {
       try {
         const status = await globalSound.getStatusAsync();
         if (status.isLoaded) {
-          // Play / Pause suave e instantâneo
           if (isPlaying && !status.isPlaying) {
             await globalSound.playAsync();
           } else if (!isPlaying && status.isPlaying) {
             await globalSound.pauseAsync();
           }
 
-          // Ajuste de posição apenas se a música já passou do período de buffer inicial (6s)
-          // e o desvio for muito alto (> 3000ms) para NUNCA travar a reprodução
           const timeSinceLoad = Date.now() - globalLoadedAt;
           if (timeSinceLoad > 6000) {
             const currentPos = status.positionMillis || 0;
             const drift = Math.abs(currentPos - targetMs);
-            if (drift > 3000) {
+            if (drift > 4000) {
               await globalSound.setPositionAsync(Math.floor(targetMs));
             }
           }
         }
-      } catch (e) {
-        console.warn("[useGroupAudioSync] Ajuste suave:", e.message);
-      }
+      } catch (e) {}
       return;
     }
 
-    // CASO 2: Nova música precisa ser carregada
+    // CASO 2: Nova música a carregar
     if (globalIsLoading && globalTrackUrl === trackUrl) {
       return;
     }
@@ -123,7 +123,6 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     globalTrackUrl = trackUrl;
 
     try {
-      // Para o som anterior
       if (globalSound) {
         const prev = globalSound;
         globalSound = null;
@@ -138,7 +137,6 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
         return;
       }
 
-      // Inicia o áudio SEM positionMillis inicial para iniciar instantaneamente sem travar a UI
       const initialPos = targetMs > 5000 ? Math.floor(targetMs) : 0;
 
       const { sound: newSound } = await Audio.Sound.createAsync(
@@ -147,13 +145,12 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
           shouldPlay: isPlaying && !isMutedRef.current,
           positionMillis: initialPos,
           isMuted: isMutedRef.current,
-          progressUpdateIntervalMillis: 500
+          progressUpdateIntervalMillis: 800
         },
         (status) => {
           if (status.isLoaded && status.positionMillis !== undefined) {
             const now = Date.now();
-            // Limita atualizações de estado do React a 1 vez por 400ms para liberar a thread do app
-            if (now - lastProgressUpdateRef.current > 400) {
+            if (now - lastProgressUpdateRef.current > 700) {
               lastProgressUpdateRef.current = now;
               setLocalProgressMs(status.positionMillis);
             }
@@ -176,11 +173,14 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
       globalIsLoading = false;
     } catch (err) {
       globalIsLoading = false;
-      console.warn("[useGroupAudioSync] Erro ao carregar áudio:", err.message);
+      console.warn("[useGroupAudioSync] Erro ao carregar som:", err.message);
     }
   }, []);
 
-  // 3. Gerenciamento da Conexão WebSockets
+  const applyAudioStateRef = useRef(applyAudioState);
+  applyAudioStateRef.current = applyAudioState;
+
+  // 3. Socket Conexão ESTÁVEL - Executa APENAS quando o groupId muda
   useEffect(() => {
     const socket = getChatSocket();
     if (!socket || !groupId) return;
@@ -188,12 +188,14 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     socket.emit("join_group_audio", { groupId });
 
     const handleState = (state) => {
-      applyAudioState(state);
+      if (applyAudioStateRef.current) {
+        applyAudioStateRef.current(state);
+      }
     };
 
     const handleError = (err) => {
-      if (onPermissionError) {
-        onPermissionError(err.message || "Acesso restrito ao Selo Dourado.");
+      if (onPermissionErrorRef.current) {
+        onPermissionErrorRef.current(err.message || "Acesso restrito ao Selo Dourado.");
       }
     };
 
@@ -206,36 +208,36 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
       socket.off("group-audio-error", handleError);
       destroyGlobalSound();
     };
-  }, [groupId, applyAudioState, onPermissionError]);
+  }, [groupId]); // NUNCA reinicia com re-renderizações!
 
   const play = () => {
     if (!isGold) return;
     const socket = getChatSocket();
-    socket?.emit("playback_play", { groupId, user: currentUser });
+    socket?.emit("playback_play", { groupId, user: currentUserRef.current });
   };
 
   const pause = () => {
     if (!isGold) return;
     const socket = getChatSocket();
-    socket?.emit("playback_pause", { groupId, user: currentUser });
+    socket?.emit("playback_pause", { groupId, user: currentUserRef.current });
   };
 
   const skip = () => {
     if (!isGold) return;
     const socket = getChatSocket();
-    socket?.emit("playback_skip", { groupId, user: currentUser });
+    socket?.emit("playback_skip", { groupId, user: currentUserRef.current });
   };
 
   const addToQueue = (track) => {
     if (!isGold) return;
     const socket = getChatSocket();
-    socket?.emit("queue_add", { groupId, track, user: currentUser });
+    socket?.emit("queue_add", { groupId, track, user: currentUserRef.current });
   };
 
   const removeFromQueue = (trackId) => {
     if (!isGold) return;
     const socket = getChatSocket();
-    socket?.emit("queue_remove", { groupId, trackId, user: currentUser });
+    socket?.emit("queue_remove", { groupId, trackId, user: currentUserRef.current });
   };
 
   const toggleMute = async () => {

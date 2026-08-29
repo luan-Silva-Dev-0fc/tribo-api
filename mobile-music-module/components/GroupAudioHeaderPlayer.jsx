@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from "react";
+﻿import React, { useEffect, useRef, memo } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,13 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
-export function GroupAudioHeaderPlayer({
+export const GroupAudioHeaderPlayer = memo(function GroupAudioHeaderPlayer({
   currentTrack,
   isPlaying,
   isGold,
   isMuted,
-  progressMs,
-  queueCount,
+  progressMs = 0,
+  queueCount = 0,
   onPlay,
   onPause,
   onSkip,
@@ -23,28 +23,31 @@ export function GroupAudioHeaderPlayer({
   onOpenQueue
 }) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const animRef = useRef(null);
 
   useEffect(() => {
-    let loop = null;
     if (isPlaying) {
-      loop = Animated.loop(
+      animRef.current = Animated.loop(
         Animated.timing(rotateAnim, {
           toValue: 1,
-          duration: 6000,
+          duration: 8000,
           easing: Easing.linear,
           useNativeDriver: true
         })
       );
-      loop.start();
+      animRef.current.start();
     } else {
-      rotateAnim.stopAnimation();
+      if (animRef.current) {
+        animRef.current.stop();
+      }
     }
     return () => {
-      if (loop) loop.stop();
+      if (animRef.current) {
+        animRef.current.stop();
+      }
     };
   }, [isPlaying]);
 
-  // Se nada estiver tocando, exibe barra de convite para usuários com Selo Dourado
   if (!currentTrack) {
     if (isGold) {
       return (
@@ -84,20 +87,17 @@ export function GroupAudioHeaderPlayer({
 
   return (
     <View style={styles.container}>
-      {/* Barra de Progresso Superior */}
       <View style={styles.progressBarTrack}>
         <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
       </View>
 
       <View style={styles.content}>
-        {/* Disco de Vinil Animado */}
         <TouchableOpacity activeOpacity={0.8} onPress={onOpenQueue} style={styles.discWrapper}>
           <Animated.View style={[styles.disc, { transform: [{ rotate: spin }] }]}>
             <Ionicons name="disc" size={38} color="#FFB800" />
           </Animated.View>
         </TouchableOpacity>
 
-        {/* Título e Artista */}
         <TouchableOpacity activeOpacity={0.8} onPress={onOpenQueue} style={styles.infoWrapper}>
           <Text numberOfLines={1} style={styles.title}>
             {currentTrack.title}
@@ -115,7 +115,6 @@ export function GroupAudioHeaderPlayer({
           </View>
         </TouchableOpacity>
 
-        {/* Controles do Player */}
         <View style={styles.actionsRow}>
           {isGold ? (
             <>
@@ -153,7 +152,6 @@ export function GroupAudioHeaderPlayer({
             </TouchableOpacity>
           )}
 
-          {/* Botão de Fila */}
           <TouchableOpacity
             onPress={onOpenQueue}
             style={styles.queueButton}
@@ -170,7 +168,7 @@ export function GroupAudioHeaderPlayer({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   idleBanner: {
