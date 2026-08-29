@@ -1,62 +1,54 @@
-import axios from 'axios';
-
-// Altere para a URL base da sua API se necessário (ex: URL do Railway ou IP local)
-const API_BASE_URL = 'http://localhost:3000/api';
+﻿import { api, request } from "../api";
+import { Platform } from "react-native";
 
 export const trackApi = {
-  /**
-   * Lista e pesquisa músicas na galeria do usuário
-   */
-  async listMyTracks(query = '', token) {
-    const response = await axios.get(`${API_BASE_URL}/users/me/tracks`, {
-      params: { query },
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return response.data.tracks || [];
-  },
-
-  /**
-   * Upload de arquivo de áudio (.mp3, .m4a)
-   */
-  async uploadTrack({ uri, name, type, title, artist, duration }, token) {
-    const formData = new FormData();
-    formData.append('file', {
-      uri,
-      name: name || 'audio.mp3',
-      type: type || 'audio/mpeg'
-    });
-
-    formData.append('title', title);
-    formData.append('artist', artist || 'Desconhecido');
-    if (duration) {
-      formData.append('duration', String(duration));
+  async listMyTracks(query = "") {
+    if (api.tracks?.list) {
+      const res = await api.tracks.list(query);
+      return res?.tracks || [];
     }
-
-    const response = await axios.post(`${API_BASE_URL}/users/me/tracks`, formData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data'
-      }
-    });
-    return response.data.track;
+    const res = await request(`/users/me/tracks${query ? `?query=${encodeURIComponent(query)}` : ""}`);
+    return res?.tracks || [];
   },
 
-  /**
-   * Exclui música da galeria
-   */
-  async deleteTrack(trackId, token) {
-    await axios.delete(`${API_BASE_URL}/users/me/tracks/${trackId}`, {
-      headers: { Authorization: `Bearer ${token}` }
+  async uploadTrack({ uri, name, type, title, artist, duration }) {
+    if (api.tracks?.upload) {
+      const res = await api.tracks.upload({ uri, name, type, title, artist, duration });
+      return res?.track || res;
+    }
+    const form = new FormData();
+    const cleanUri =
+      Platform.OS === "ios" && typeof uri === "string" && uri.startsWith("file://")
+        ? uri.replace("file://", "")
+        : uri;
+
+    form.append("file", {
+      uri: cleanUri,
+      name: name || "audio.mp3",
+      type: type || "audio/mpeg"
     });
+    if (title) form.append("title", title);
+    if (artist) form.append("artist", artist);
+    if (duration) form.append("duration", String(duration));
+
+    const res = await request("/users/me/tracks", {
+      method: "POST",
+      body: form
+    });
+    return res?.track || res;
   },
 
-  /**
-   * Consulta a fila atual do grupo
-   */
-  async getGroupQueue(groupId, token) {
-    const response = await axios.get(`${API_BASE_URL}/groups/${groupId}/queue`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return response.data;
+  async deleteTrack(trackId) {
+    if (api.tracks?.remove) {
+      return await api.tracks.remove(trackId);
+    }
+    return await request(`/users/me/tracks/${trackId}`, { method: "DELETE" });
+  },
+
+  async getGroupQueue(groupId) {
+    if (api.tracks?.getGroupQueue) {
+      return await api.tracks.getGroupQueue(groupId);
+    }
+    return await request(`/groups/${groupId}/queue`);
   }
 };
