@@ -2,11 +2,12 @@
 import { Audio } from "expo-av";
 import { getChatSocket } from "../services/chatSocket";
 
-// SINGLETON GLOBAL: Garante que NUNCA exista mais de 1 áudio tocando no app inteiro
+// SINGLETON GLOBAL
 let globalSound = null;
 let globalTrackUrl = null;
 let globalOpId = 0;
 let globalIsLoading = false;
+let globalLoadedAt = 0;
 
 async function destroyGlobalSound() {
   globalOpId++;
@@ -15,6 +16,7 @@ async function destroyGlobalSound() {
     globalSound = null;
     globalTrackUrl = null;
     globalIsLoading = false;
+    globalLoadedAt = 0;
     try {
       await s.stopAsync();
     } catch (_) {}
@@ -40,6 +42,8 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
   const isMutedRef = useRef(false);
   isMutedRef.current = isMuted;
 
+  const lastProgressUpdateRef = useRef(0);
+
   const isGold = Boolean(
     currentUser?.badge_type === "GOLD" ||
     currentUser?.badge_type === "GOLD_VERIFIED" ||
@@ -50,17 +54,17 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     currentUser?.email?.toLowerCase() === "luansilva@gmail.com"
   );
 
-  // 1. Configuração do modo de áudio no Expo
+  // 1. Configuração otimizada de áudio (sem ducking no Android para evitar engasgos)
   useEffect(() => {
     Audio.setAudioModeAsync({
       staysActiveInBackground: true,
       playsInSilentModeIOS: true,
-      shouldDuckAndroid: true,
+      shouldDuckAndroid: false,
       playThroughEarpieceAndroid: false
     }).catch(console.warn);
   }, []);
 
-  // 2. Motor de Sincronização e Reprodução
+  // 2. Motor de Sincronização e Reprodução Suave
   const applyAudioState = useCallback(async (state) => {
     if (!state) return;
     setAudioState(state);
@@ -80,35 +84,38 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     const latency = Math.max(0, (Date.now() - (state.server_time || Date.now())) / 2);
     const targetMs = basePositionMs + (isPlaying ? latency : 0);
 
-    setLocalProgressMs(targetMs);
-
-    // CASO 1: A mesma música já está carregada no player
+    // CASO 1: A mesma faixa já está carregada no player
     if (globalSound && globalTrackUrl === trackUrl && !globalIsLoading) {
       try {
         const status = await globalSound.getStatusAsync();
         if (status.isLoaded) {
-          // Play / Pause instantâneo
+          // Play / Pause suave e instantâneo
           if (isPlaying && !status.isPlaying) {
             await globalSound.playAsync();
           } else if (!isPlaying && status.isPlaying) {
             await globalSound.pauseAsync();
           }
 
-          // Ajuste de posição apenas se houver desvio considerável (> 1500ms) para não engasgar
-          const drift = Math.abs((status.positionMillis || 0) - targetMs);
-          if (drift > 1500) {
-            await globalSound.setPositionAsync(Math.floor(targetMs));
+          // Ajuste de posição apenas se a música já passou do período de buffer inicial (6s)
+          // e o desvio for muito alto (> 3000ms) para NUNCA travar a reprodução
+          const timeSinceLoad = Date.now() - globalLoadedAt;
+          if (timeSinceLoad > 6000) {
+            const currentPos = status.positionMillis || 0;
+            const drift = Math.abs(currentPos - targetMs);
+            if (drift > 3000) {
+              await globalSound.setPositionAsync(Math.floor(targetMs));
+            }
           }
         }
       } catch (e) {
-        console.warn("[useGroupAudioSync] Ajuste de estado:", e.message);
+        console.warn("[useGroupAudioSync] Ajuste suave:", e.message);
       }
       return;
     }
 
-    // CASO 2: Carregar nova música com trava absoluta de instância única
+    // CASO 2: Nova música precisa ser carregada
     if (globalIsLoading && globalTrackUrl === trackUrl) {
-      return; // Já está baixando/carregando esta faixa
+      return;
     }
 
     const thisOp = ++globalOpId;
@@ -116,7 +123,7 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
     globalTrackUrl = trackUrl;
 
     try {
-      // Destrói qualquer som anterior antes de instanciar o novo
+      // Para o som anterior
       if (globalSound) {
         const prev = globalSound;
         globalSound = null;
@@ -131,22 +138,29 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
         return;
       }
 
+      // Inicia o áudio SEM positionMillis inicial para iniciar instantaneamente sem travar a UI
+      const initialPos = targetMs > 5000 ? Math.floor(targetMs) : 0;
+
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: trackUrl },
         {
           shouldPlay: isPlaying && !isMutedRef.current,
-          positionMillis: Math.max(0, Math.floor(targetMs)),
+          positionMillis: initialPos,
           isMuted: isMutedRef.current,
           progressUpdateIntervalMillis: 500
         },
         (status) => {
           if (status.isLoaded && status.positionMillis !== undefined) {
-            setLocalProgressMs(status.positionMillis);
+            const now = Date.now();
+            // Limita atualizações de estado do React a 1 vez por 400ms para liberar a thread do app
+            if (now - lastProgressUpdateRef.current > 400) {
+              lastProgressUpdateRef.current = now;
+              setLocalProgressMs(status.positionMillis);
+            }
           }
         }
       );
 
-      // Se outra requisição chegou enquanto carregava este áudio, descarrega imediatamente
       if (thisOp !== globalOpId) {
         try {
           await newSound.stopAsync();
@@ -158,10 +172,11 @@ export function useGroupAudioSync({ groupId, currentUser, onPermissionError }) {
 
       globalSound = newSound;
       globalTrackUrl = trackUrl;
+      globalLoadedAt = Date.now();
       globalIsLoading = false;
     } catch (err) {
       globalIsLoading = false;
-      console.warn("[useGroupAudioSync] Erro ao instanciar som:", err.message);
+      console.warn("[useGroupAudioSync] Erro ao carregar áudio:", err.message);
     }
   }, []);
 
