@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken');
 const bcrypt = require("bcrypt");
 const {
   createUser,
@@ -250,4 +251,91 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { register, login, me, verifyEmail, resendVerificationCode, publicUser };
+
+async function googleAuth(req, res, next) {
+  try {
+    const { idToken, token, email, name, fullName, avatar, photo } = req.body || {};
+    let targetEmail = email ? String(email).trim().toLowerCase() : null;
+    let googleName = name || fullName || null;
+    let googleAvatar = avatar || photo || null;
+
+    const rawToken = idToken || token;
+    if (rawToken && typeof rawToken === 'string') {
+      try {
+        const decoded = jwt.decode(rawToken);
+        if (decoded && decoded.email) {
+          targetEmail = String(decoded.email).trim().toLowerCase();
+          if (decoded.name && !googleName) googleName = decoded.name;
+          if (decoded.picture && !googleAvatar) googleAvatar = decoded.picture;
+        }
+      } catch (_) {}
+    }
+
+    if (!targetEmail) {
+      return res.status(400).json({ message: 'E-mail do Google não informado ou inválido' });
+    }
+
+    const user = await findUserByEmail(targetEmail);
+
+    if (!user) {
+      return res.status(404).json({
+        exists: false,
+        isNewUser: true,
+        message: 'Conta não encontrada. Prossiga com o cadastro.',
+        googleProfile: {
+          email: targetEmail,
+          name: googleName,
+          avatarUrl: googleAvatar
+        }
+      });
+    }
+
+    if (user.status === 'BANNED' || user.is_deleted) {
+      return res.status(403).json({ message: 'Esta conta foi suspensa ou desativada' });
+    }
+
+    if (user.status === 'PENDING_DELETION') {
+      try {
+        const { sql } = require('../config/database');
+        await sql`
+          UPDATE users
+          SET
+            status = 'ACTIVE',
+            deletion_scheduled_at = NULL,
+            deletion_effective_at = NULL,
+            updated_at = NOW()
+          WHERE id = ${user.id};
+        `;
+        user.status = 'ACTIVE';
+      } catch (_) {}
+    }
+
+    if (!user.email_verified) {
+      try {
+        await updateUserByEmail(targetEmail, {
+          email_verified: true,
+          verified: true,
+          badge_type: user.badge_type === 'GOLD' ? 'GOLD' : 'BLUE'
+        });
+        user.email_verified = true;
+        user.verified = true;
+        if (user.badge_type !== 'GOLD') user.badge_type = 'BLUE';
+      } catch (_) {}
+    }
+
+    const authToken = signToken({ sub: user.id, email: user.email, role: user.role });
+
+    logger.info('Usuário autenticado via Google', { email: user.email, role: user.role });
+    return res.status(200).json({
+      message: 'Login com Google realizado com sucesso',
+      user: publicUser(user),
+      token: authToken,
+      exists: true,
+      isNewUser: false
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports = { register, login, me, verifyEmail, resendVerificationCode, publicUser, googleAuth };

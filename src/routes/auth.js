@@ -21,6 +21,19 @@ router.post(
   authController.register
 );
 
+
+router.post(
+  '/google',
+  authLimiter,
+  authController.googleAuth
+);
+
+router.post(
+  '/auth/google',
+  authLimiter,
+  authController.googleAuth
+);
+
 router.post(
   '/login',
   authLimiter,
