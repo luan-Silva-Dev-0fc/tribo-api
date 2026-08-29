@@ -7,6 +7,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const app = require('./app');
 const env = require('./config/env');
+const { logger } = require('./utils/logger');
 const { initializeChatSocket } = require('./sockets/chat');
 const { initializeNotificationSocket } = require('./sockets/notification');
 const { initializeGroupAudioSocket } = require('./sockets/groupAudio');
