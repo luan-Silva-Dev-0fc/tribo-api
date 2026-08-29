@@ -24,6 +24,7 @@ export function AppShell({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const barBg = colors.card || "#121214";
 
   const tabs = [
     ["feed", "home", "Feed"],
@@ -58,7 +59,7 @@ export function AppShell({
   }, [active, fetchRequests]);
 
   return (
-    <View style={[styles.root, { backgroundColor: "#000000" }]}>
+    <View style={[styles.root, { backgroundColor: barBg }]}>
       {/* Header Superior */}
       <View
         style={[
@@ -105,12 +106,12 @@ export function AppShell({
         {children}
       </View>
 
-      {/* Footer / Barra de Navegação Inferior (Preto Puro AMOLED) */}
+      {/* Footer / Barra de Navegação Inferior (Cinza Escuro da Interface) */}
       <View
         style={[
           styles.footerContainer,
           {
-            backgroundColor: "#000000",
+            backgroundColor: barBg,
             borderTopWidth: 1,
             borderTopColor: "rgba(255, 255, 255, 0.08)"
           }
@@ -120,7 +121,7 @@ export function AppShell({
           style={[
             styles.navBar,
             {
-              backgroundColor: "#000000",
+              backgroundColor: barBg,
               paddingBottom: Math.max(
                 insets.bottom,
                 Platform.OS === "android" ? 12 : 8
@@ -205,8 +206,7 @@ export function AppShell({
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
-    backgroundColor: "#000000"
+    flex: 1
   },
   header: {
     height: 140,
@@ -270,16 +270,14 @@ const styles = StyleSheet.create({
   },
   footerContainer: {
     width: "100%",
-    zIndex: 100,
-    backgroundColor: "#000000"
+    zIndex: 100
   },
   navBar: {
     flexDirection: "row",
     width: "100%",
     justifyContent: "space-around",
     alignItems: "center",
-    paddingTop: 8,
-    backgroundColor: "#000000"
+    paddingTop: 8
   },
   tab: {
     flex: 1,
