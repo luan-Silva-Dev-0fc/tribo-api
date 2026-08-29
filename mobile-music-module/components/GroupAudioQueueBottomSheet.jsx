@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from "react";
 import {
   View,
   Text,
@@ -6,16 +6,18 @@ import {
   Modal,
   TouchableOpacity,
   FlatList,
-  Dimensions
-} from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+  Dimensions,
+  Platform
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
-  return `${m}:${s < 10 ? '0' : ''}${s}`;
+  return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
 
 export function GroupAudioQueueBottomSheet({
@@ -32,16 +34,20 @@ export function GroupAudioQueueBottomSheet({
   onRemoveTrack,
   onOpenAddModal
 }) {
+  const insets = useSafeAreaInsets();
   const currentSeconds = Math.floor(progressMs / 1000);
   const totalSeconds = currentTrack?.duration || 0;
   const progressRatio = totalSeconds > 0 ? Math.min(1, currentSeconds / totalSeconds) : 0;
+
+  // Espaçamento seguro para a barra de navegação do Android
+  const bottomPadding = Math.max(20, insets.bottom + 16);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
-        <View style={styles.sheetContainer}>
+        <View style={[styles.sheetContainer, { paddingBottom: bottomPadding }]}>
           {/* Alça Superior */}
           <View style={styles.dragHandle} />
 
@@ -63,7 +69,7 @@ export function GroupAudioQueueBottomSheet({
                 <Text style={styles.sectionLabel}>TOCANDO AGORA</Text>
                 {currentTrack.added_by && (
                   <Text style={styles.addedByText}>
-                    por <Text style={{ color: '#FFB800' }}>@{currentTrack.added_by.username}</Text>
+                    por <Text style={{ color: "#FFB800" }}>@{currentTrack.added_by.username}</Text>
                   </Text>
                 )}
               </View>
@@ -89,7 +95,7 @@ export function GroupAudioQueueBottomSheet({
                     onPress={isPlaying ? onPause : onPlay}
                     style={styles.mainPlayButton}
                   >
-                    <Ionicons name={isPlaying ? 'pause' : 'play'} size={28} color="#000000" />
+                    <Ionicons name={isPlaying ? "pause" : "play"} size={28} color="#000000" />
                   </TouchableOpacity>
 
                   <TouchableOpacity onPress={onSkip} style={styles.skipButton}>
@@ -118,7 +124,7 @@ export function GroupAudioQueueBottomSheet({
           <FlatList
             data={queueList}
             keyExtractor={(item, index) => item.id || String(index)}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
             renderItem={({ item, index }) => (
               <View style={styles.queueItem}>
                 <Text style={styles.queueIndex}>{index + 1}º</Text>
@@ -147,11 +153,11 @@ export function GroupAudioQueueBottomSheet({
             }
           />
 
-          {/* Rodapé de Ação */}
+          {/* Rodapé de Ação com Safe Area Spacing */}
           <View style={styles.footer}>
             {isGold ? (
-              <TouchableOpacity style={styles.addTrackButton} onPress={onOpenAddModal}>
-                <Ionicons name="add-circle" size={20} color="#000000" />
+              <TouchableOpacity style={styles.addTrackButton} onPress={onOpenAddModal} activeOpacity={0.85}>
+                <Ionicons name="add-circle" size={22} color="#000000" />
                 <Text style={styles.addTrackButtonText}>Adicionar Música da Minha Galeria</Text>
               </TouchableOpacity>
             ) : (
@@ -172,80 +178,80 @@ export function GroupAudioQueueBottomSheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)'
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.75)"
   },
   backdrop: {
     flex: 1
   },
   sheetContainer: {
-    backgroundColor: '#0A0A0A',
+    backgroundColor: "#0A0A0A",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderTopColor: '#1F1F1F',
-    maxHeight: SCREEN_HEIGHT * 0.85,
-    minHeight: SCREEN_HEIGHT * 0.55
+    borderTopColor: "#1F1F1F",
+    maxHeight: SCREEN_HEIGHT * 0.88,
+    minHeight: SCREEN_HEIGHT * 0.58
   },
   dragHandle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#2C2C2E',
-    alignSelf: 'center',
+    backgroundColor: "#2C2C2E",
+    alignSelf: "center",
     marginTop: 10
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#141414'
+    borderBottomColor: "#141414"
   },
   headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '700'
+    fontWeight: "700"
   },
   sectionLabel: {
-    color: '#8E8E93',
+    color: "#8E8E93",
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 1
   },
   nowPlayingCard: {
-    backgroundColor: '#121212',
+    backgroundColor: "#121212",
     marginHorizontal: 16,
     marginTop: 12,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 184, 0, 0.25)'
+    borderColor: "rgba(255, 184, 0, 0.25)"
   },
   nowPlayingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 6
   },
   addedByText: {
-    color: '#8E8E93',
+    color: "#8E8E93",
     fontSize: 12
   },
   nowPlayingTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: '800'
+    fontWeight: "800"
   },
   nowPlayingArtist: {
-    color: '#A1A1AA',
+    color: "#A1A1AA",
     fontSize: 14,
     marginTop: 2
   },
@@ -254,99 +260,99 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     height: 4,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: "#1C1C1E",
     borderRadius: 2,
-    overflow: 'hidden'
+    overflow: "hidden"
   },
   progressBarActive: {
-    height: '100%',
-    backgroundColor: '#FFB800'
+    height: "100%",
+    backgroundColor: "#FFB800"
   },
   timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 4
   },
   timeText: {
-    color: '#636366',
+    color: "#636366",
     fontSize: 11,
-    fontWeight: '600'
+    fontWeight: "600"
   },
   controlsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 12,
     gap: 18
   },
   mainPlayButton: {
-    backgroundColor: '#FFB800',
+    backgroundColor: "#FFB800",
     width: 48,
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center'
+    justifyContent: "center",
+    alignItems: "center"
   },
   skipButton: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: "#1C1C1E",
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center'
+    justifyContent: "center",
+    alignItems: "center"
   },
   listenerNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 12,
     gap: 6
   },
   listenerNoticeText: {
-    color: '#8E8E93',
+    color: "#8E8E93",
     fontSize: 12
   },
   emptyPlayerCard: {
-    backgroundColor: '#121212',
+    backgroundColor: "#121212",
     marginHorizontal: 16,
     marginTop: 12,
-    padding: 24,
+    padding: 20,
     borderRadius: 16,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#1C1C1E'
+    borderColor: "#1C1C1E"
   },
   emptyPlayerText: {
-    color: '#8E8E93',
+    color: "#8E8E93",
     fontSize: 14,
     marginTop: 8
   },
   queueItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#121212',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#121212",
     padding: 12,
     borderRadius: 12,
     marginBottom: 8,
     borderWidth: 0.5,
-    borderColor: '#1F1F1F'
+    borderColor: "#1F1F1F"
   },
   queueIndex: {
-    color: '#FFB800',
+    color: "#FFB800",
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     width: 26
   },
   queueInfo: {
     flex: 1
   },
   queueTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: '600'
+    fontWeight: "600"
   },
   queueArtist: {
-    color: '#8E8E93',
+    color: "#8E8E93",
     fontSize: 12,
     marginTop: 2
   },
@@ -354,44 +360,50 @@ const styles = StyleSheet.create({
     padding: 6
   },
   emptyQueueBox: {
-    paddingVertical: 20,
-    alignItems: 'center'
+    paddingVertical: 16,
+    alignItems: "center"
   },
   emptyQueueText: {
-    color: '#636366',
+    color: "#636366",
     fontSize: 13
   },
   footer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#141414'
+    borderTopColor: "#141414"
   },
   addTrackButton: {
-    backgroundColor: '#FFB800',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#FFB800",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8
+    borderRadius: 14,
+    gap: 8,
+    shadowColor: "#FFB800",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4
   },
   addTrackButtonText: {
-    color: '#000000',
+    color: "#000000",
     fontSize: 15,
-    fontWeight: '800'
+    fontWeight: "800"
   },
   goldRestrictionBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#141100',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#141100",
     padding: 12,
     borderRadius: 10,
     gap: 8,
     borderWidth: 0.5,
-    borderColor: '#FFB80033'
+    borderColor: "#FFB80033"
   },
   goldRestrictionText: {
-    color: '#FFB800',
+    color: "#FFB800",
     fontSize: 12,
     flex: 1
   }
