@@ -17,6 +17,8 @@ import { trackApi } from "../../services/trackApi";
 
 export function UserMusicGalleryScreen({ navigation }) {
   const [tracks, setTracks] = useState([]);
+  const [deviceAudios, setDeviceAudios] = useState([]);
+  const [activeTab, setActiveTab] = useState("cloud");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -30,20 +32,33 @@ export function UserMusicGalleryScreen({ navigation }) {
       const data = await trackApi.listMyTracks(query);
       setTracks(data || []);
     } catch (err) {
-      Alert.alert("Erro", err.response?.data?.message || "Falha ao carregar músicas.");
+      console.warn("Erro ao buscar faixas:", err.message);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const loadDeviceAudios = async () => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status === "granted") {
+        const media = await MediaLibrary.getAssetsAsync({ mediaType: "audio", first: 50 });
+        if (media && media.assets) {
+          setDeviceAudios(media.assets);
+        }
+      }
+    } catch (e) {}
+  };
+
   useEffect(() => {
     loadTracks(search);
+    loadDeviceAudios();
   }, [search, loadTracks]);
 
   useEffect(() => {
     return () => {
       if (previewSound) {
-        previewSound.unloadAsync();
+        previewSound.unloadAsync().catch(() => {});
       }
     };
   }, [previewSound]);
@@ -51,8 +66,8 @@ export function UserMusicGalleryScreen({ navigation }) {
   const handleTogglePreview = async (track) => {
     if (playingTrackId === track.id) {
       if (previewSound) {
-        await previewSound.stopAsync();
-        await previewSound.unloadAsync();
+        await previewSound.stopAsync().catch(() => {});
+        await previewSound.unloadAsync().catch(() => {});
       }
       setPreviewSound(null);
       setPlayingTrackId(null);
@@ -60,7 +75,7 @@ export function UserMusicGalleryScreen({ navigation }) {
     }
 
     if (previewSound) {
-      await previewSound.unloadAsync();
+      await previewSound.unloadAsync().catch(() => {});
     }
 
     try {
@@ -80,51 +95,22 @@ export function UserMusicGalleryScreen({ navigation }) {
     }
   };
 
-  const handlePickAndUpload = async () => {
+  const handleUploadDeviceAudio = async (asset) => {
+    setUploading(true);
     try {
-      let file = null;
-      let DocumentPicker = null;
-      try {
-        DocumentPicker = require("expo-document-picker");
-      } catch (e) {}
-
-      if (DocumentPicker && DocumentPicker.getDocumentAsync) {
-        const result = await DocumentPicker.getDocumentAsync({
-          type: ["audio/*", "audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/aac"],
-          copyToCacheDirectory: true
-        });
-
-        if (!result.canceled && result.assets && result.assets.length > 0) {
-          file = result.assets[0];
-        }
-      }
-
-      if (!file) {
-        // Fallback MediaLibrary
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status === "granted") {
-          const media = await MediaLibrary.getAssetsAsync({ mediaType: "audio", first: 1 });
-          if (media && media.assets && media.assets.length > 0) {
-            file = media.assets[0];
-          }
-        }
-      }
-
-      if (!file) return;
-
-      setUploading(true);
-      const titleGuess = (file.name || file.filename || "Nova Música").replace(/\.[^/.]+$/, "");
-
+      const titleGuess = (asset.filename || asset.name || "Áudio").replace(/\.[^/.]+$/, "");
       await trackApi.uploadTrack({
-        uri: file.uri,
-        name: file.name || file.filename || "audio.mp3",
-        type: file.mimeType || "audio/mpeg",
+        uri: asset.uri,
+        name: asset.filename || "audio.mp3",
+        type: "audio/mpeg",
         title: titleGuess,
-        artist: "Minha Faixa"
+        artist: "Minha Faixa",
+        duration: Math.round(asset.duration || 0)
       });
 
-      Alert.alert("Sucesso", "Música adicionada à sua galeria!");
+      Alert.alert("Sucesso", `"${titleGuess}" adicionada à sua galeria!`);
       loadTracks(search);
+      setActiveTab("cloud");
     } catch (err) {
       Alert.alert("Erro no Upload", err.message || "Falha ao enviar arquivo.");
     } finally {
@@ -153,225 +139,138 @@ export function UserMusicGalleryScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation?.goBack?.()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Minha Galeria de Músicas</Text>
-          <TouchableOpacity onPress={handlePickAndUpload} disabled={uploading}>
-            {uploading ? (
-              <ActivityIndicator size="small" color="#FFB800" />
-            ) : (
-              <Ionicons name="cloud-upload" size={24} color="#FFB800" />
-            )}
+          <Text style={styles.headerTitle}>Galeria de Músicas</Text>
+          <TouchableOpacity onPress={loadDeviceAudios}>
+            <Ionicons name="refresh" size={22} color="#FFB800" />
           </TouchableOpacity>
         </View>
 
-        {/* Busca */}
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#8E8E93" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar por música ou artista..."
-            placeholderTextColor="#636366"
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch("")}>
-              <Ionicons name="close-circle" size={18} color="#8E8E93" />
-            </TouchableOpacity>
-          )}
+        {/* Abas */}
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === "cloud" && styles.tabButtonActive]}
+            onPress={() => setActiveTab("cloud")}
+          >
+            <Text style={[styles.tabButtonText, activeTab === "cloud" && styles.tabButtonTextActive]}>
+              Nuvem ({tracks.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === "device" && styles.tabButtonActive]}
+            onPress={() => setActiveTab("device")}
+          >
+            <Text style={[styles.tabButtonText, activeTab === "device" && styles.tabButtonTextActive]}>
+              Aparelho ({deviceAudios.length})
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Lista */}
-        {loading ? (
-          <ActivityIndicator size="large" color="#FFB800" style={{ marginTop: 50 }} />
+        {activeTab === "cloud" ? (
+          loading ? (
+            <ActivityIndicator size="large" color="#FFB800" style={{ marginTop: 50 }} />
+          ) : (
+            <FlatList
+              data={tracks}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingBottom: 90 }}
+              renderItem={({ item }) => {
+                const isPlayingThis = playingTrackId === item.id;
+                return (
+                  <View style={styles.trackCard}>
+                    <TouchableOpacity
+                      style={[styles.playButton, isPlayingThis && styles.playButtonActive]}
+                      onPress={() => handleTogglePreview(item)}
+                    >
+                      <Ionicons
+                        name={isPlayingThis ? "stop" : "play"}
+                        size={20}
+                        color={isPlayingThis ? "#000000" : "#FFB800"}
+                      />
+                    </TouchableOpacity>
+
+                    <View style={styles.trackInfo}>
+                      <Text numberOfLines={1} style={styles.trackTitle}>{item.title}</Text>
+                      <Text numberOfLines={1} style={styles.trackArtist}>{item.artist}</Text>
+                    </View>
+
+                    <TouchableOpacity onPress={() => handleDelete(item)} style={styles.deleteBtn}>
+                      <Ionicons name="trash-outline" size={20} color="#8E8E93" />
+                    </TouchableOpacity>
+                  </View>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <Ionicons name="musical-notes" size={48} color="#2C2C2E" />
+                  <Text style={styles.emptyStateTitle}>Sua galeria na nuvem está vazia</Text>
+                  <Text style={styles.emptyStateSubtitle}>
+                    Toque na aba "Aparelho" para salvar músicas do seu celular na sua galeria da Tribo!
+                  </Text>
+                </View>
+              }
+            />
+          )
         ) : (
           <FlatList
-            data={tracks}
-            keyExtractor={(item) => item.id}
+            data={deviceAudios}
+            keyExtractor={(item) => item.id || item.uri}
             contentContainerStyle={{ paddingBottom: 90 }}
-            renderItem={({ item }) => {
-              const isPlayingThis = playingTrackId === item.id;
-              return (
-                <View style={styles.trackCard}>
-                  <TouchableOpacity
-                    style={[styles.playButton, isPlayingThis && styles.playButtonActive]}
-                    onPress={() => handleTogglePreview(item)}
-                  >
-                    <Ionicons
-                      name={isPlayingThis ? "stop" : "play"}
-                      size={20}
-                      color={isPlayingThis ? "#000000" : "#FFB800"}
-                    />
-                  </TouchableOpacity>
-
-                  <View style={styles.trackInfo}>
-                    <Text numberOfLines={1} style={styles.trackTitle}>{item.title}</Text>
-                    <Text numberOfLines={1} style={styles.trackArtist}>{item.artist}</Text>
-                  </View>
-
-                  <TouchableOpacity onPress={() => handleDelete(item)} style={styles.deleteBtn}>
-                    <Ionicons name="trash-outline" size={20} color="#8E8E93" />
-                  </TouchableOpacity>
+            renderItem={({ item }) => (
+              <View style={styles.trackCard}>
+                <View style={styles.playButton}>
+                  <Ionicons name="musical-note" size={20} color="#FFB800" />
                 </View>
-              );
-            }}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Ionicons name="musical-notes" size={48} color="#2C2C2E" />
-                <Text style={styles.emptyStateTitle}>Sua galeria está vazia</Text>
-                <Text style={styles.emptyStateSubtitle}>
-                  Faça o upload dos seus arquivos de áudio para poder transmiti-los com o Selo Dourado nos grupos da Tribo.
-                </Text>
-                <TouchableOpacity style={styles.uploadCtaButton} onPress={handlePickAndUpload}>
-                  <Ionicons name="add" size={20} color="#000000" />
-                  <Text style={styles.uploadCtaText}>Adicionar Música</Text>
+
+                <View style={styles.trackInfo}>
+                  <Text numberOfLines={1} style={styles.trackTitle}>
+                    {(item.filename || item.name || "Áudio").replace(/\.[^/.]+$/, "")}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.trackArtist}>
+                    {Math.floor((item.duration || 0) / 60)}:{(item.duration || 0) % 60 < 10 ? "0" : ""}{Math.floor((item.duration || 0) % 60)} • Armazenamento Local
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => handleUploadDeviceAudio(item)}
+                  style={styles.uploadMiniBtn}
+                  disabled={uploading}
+                >
+                  <Ionicons name="cloud-upload" size={18} color="#000000" />
                 </TouchableOpacity>
               </View>
-            }
+            )}
           />
         )}
-
-        {/* Botão Flutuante (FAB) */}
-        <TouchableOpacity style={styles.fab} onPress={handlePickAndUpload} activeOpacity={0.85}>
-          <Ionicons name="add" size={28} color="#000000" />
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#000000"
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#000000",
-    paddingHorizontal: 16
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 14
-  },
-  backButton: {
-    padding: 4
-  },
-  headerTitle: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "800"
-  },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0A0A0A",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    marginVertical: 12,
-    borderWidth: 1,
-    borderColor: "#1F1F1F"
-  },
-  searchInput: {
-    flex: 1,
-    color: "#FFFFFF",
-    marginLeft: 8,
-    fontSize: 14
-  },
-  trackCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0A0A0A",
-    padding: 12,
-    borderRadius: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#181818"
-  },
-  playButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#171400",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#FFB80044",
-    marginRight: 12
-  },
-  playButtonActive: {
-    backgroundColor: "#FFB800"
-  },
-  trackInfo: {
-    flex: 1
-  },
-  trackTitle: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700"
-  },
-  trackArtist: {
-    color: "#8E8E93",
-    fontSize: 13,
-    marginTop: 2
-  },
-  deleteBtn: {
-    padding: 8
-  },
-  emptyState: {
-    alignItems: "center",
-    marginTop: 60,
-    paddingHorizontal: 20
-  },
-  emptyStateTitle: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "700",
-    marginTop: 16
-  },
-  emptyStateSubtitle: {
-    color: "#8E8E93",
-    fontSize: 13,
-    textAlign: "center",
-    marginTop: 8,
-    lineHeight: 18
-  },
-  uploadCtaButton: {
-    backgroundColor: "#FFB800",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 24,
-    marginTop: 20,
-    gap: 6
-  },
-  uploadCtaText: {
-    color: "#000000",
-    fontSize: 14,
-    fontWeight: "800"
-  },
-  fab: {
-    position: "absolute",
-    bottom: 24,
-    right: 20,
-    backgroundColor: "#FFB800",
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 8,
-    shadowColor: "#FFB800",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6
-  }
+  safeArea: { flex: 1, backgroundColor: "#000000" },
+  container: { flex: 1, backgroundColor: "#000000", paddingHorizontal: 16 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 14 },
+  backButton: { padding: 4 },
+  headerTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "800" },
+  tabRow: { flexDirection: "row", backgroundColor: "#121212", borderRadius: 12, padding: 3, marginVertical: 12 },
+  tabButton: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 10 },
+  tabButtonActive: { backgroundColor: "#1C1700", borderWidth: 0.5, borderColor: "rgba(255, 184, 0, 0.4)" },
+  tabButtonText: { color: "#8E8E93", fontSize: 12, fontWeight: "600" },
+  tabButtonTextActive: { color: "#FFB800", fontWeight: "800" },
+  trackCard: { flexDirection: "row", alignItems: "center", backgroundColor: "#0A0A0A", padding: 12, borderRadius: 14, marginBottom: 10, borderWidth: 1, borderColor: "#181818" },
+  playButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#171400", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "#FFB80044", marginRight: 12 },
+  playButtonActive: { backgroundColor: "#FFB800" },
+  trackInfo: { flex: 1 },
+  trackTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  trackArtist: { color: "#8E8E93", fontSize: 13, marginTop: 2 },
+  deleteBtn: { padding: 8 },
+  uploadMiniBtn: { backgroundColor: "#FFB800", padding: 8, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  emptyState: { alignItems: "center", marginTop: 60, paddingHorizontal: 20 },
+  emptyStateTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "700", marginTop: 16 },
+  emptyStateSubtitle: { color: "#8E8E93", fontSize: 13, textAlign: "center", marginTop: 8, lineHeight: 18 }
 });
