@@ -6,17 +6,17 @@ import {
   Modal,
   TouchableOpacity,
   FlatList,
-  Dimensions,
-  Platform
+  Dimensions
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
+  const total = Math.max(0, Math.floor(seconds || 0));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
   return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
 
@@ -35,11 +35,10 @@ export function GroupAudioQueueBottomSheet({
   onOpenAddModal
 }) {
   const insets = useSafeAreaInsets();
-  const currentSeconds = Math.floor(progressMs / 1000);
+  const currentSeconds = Math.floor((progressMs || 0) / 1000);
   const totalSeconds = currentTrack?.duration || 0;
   const progressRatio = totalSeconds > 0 ? Math.min(1, currentSeconds / totalSeconds) : 0;
 
-  // Espaçamento seguro para a barra de navegação do Android
   const bottomPadding = Math.max(20, insets.bottom + 16);
 
   return (
@@ -48,34 +47,57 @@ export function GroupAudioQueueBottomSheet({
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
         <View style={[styles.sheetContainer, { paddingBottom: bottomPadding }]}>
-          {/* Alça Superior */}
           <View style={styles.dragHandle} />
 
-          {/* Cabeçalho */}
+          {/* Cabeçalho com Instruções */}
           <View style={styles.header}>
-            <View style={styles.headerTitleRow}>
-              <MaterialCommunityIcons name="music-box-multiple" size={20} color="#FFB800" />
-              <Text style={styles.headerTitle}>Fila de Músicas da Tribo</Text>
+            <View>
+              <View style={styles.headerTitleRow}>
+                <MaterialCommunityIcons name="music-box-multiple" size={20} color="#FFB800" />
+                <Text style={styles.headerTitle}>Fila de Músicas da Tribo</Text>
+              </View>
+              <Text style={styles.headerSubtitle}>
+                Áudio sincronizado ao vivo para todos os membros 🎧
+              </Text>
             </View>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={24} color="#8E8E93" />
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.closeBtn}>
+              <Ionicons name="close" size={22} color="#8E8E93" />
             </TouchableOpacity>
           </View>
 
-          {/* Seção: Tocando Agora */}
+          {/* Banner de Permissão / Papel do Usuário */}
+          <View style={[styles.permissionBanner, isGold ? styles.goldBannerBg : styles.listenerBannerBg]}>
+            <Ionicons
+              name={isGold ? "star" : "information-circle-outline"}
+              size={15}
+              color={isGold ? "#FFB800" : "#8E8E93"}
+            />
+            <Text style={[styles.permissionText, isGold ? styles.goldText : styles.listenerText]}>
+              {isGold
+                ? "⭐ Você possui Selo Dourado: Pode adicionar músicas, pausar e pular faixas."
+                : "🎧 Você está ouvindo a transmissão da Tribo. Apenas Selo Dourado gerencia a fila."}
+            </Text>
+          </View>
+
+          {/* Card: Tocando Agora */}
           {currentTrack ? (
             <View style={styles.nowPlayingCard}>
               <View style={styles.nowPlayingHeader}>
-                <Text style={styles.sectionLabel}>TOCANDO AGORA</Text>
+                <View style={styles.liveIndicator}>
+                  <View style={styles.greenPulse} />
+                  <Text style={styles.sectionLabel}>TOCANDO AGORA</Text>
+                </View>
                 {currentTrack.added_by && (
-                  <Text style={styles.addedByText}>
-                    por <Text style={{ color: "#FFB800" }}>@{currentTrack.added_by.username}</Text>
-                  </Text>
+                  <View style={styles.addedByTag}>
+                    <Text style={styles.addedByText}>
+                      por <Text style={{ color: "#FFB800", fontWeight: "700" }}>@{currentTrack.added_by.username || currentTrack.added_by.name}</Text>
+                    </Text>
+                  </View>
                 )}
               </View>
 
               <Text numberOfLines={1} style={styles.nowPlayingTitle}>{currentTrack.title}</Text>
-              <Text numberOfLines={1} style={styles.nowPlayingArtist}>{currentTrack.artist}</Text>
+              <Text numberOfLines={1} style={styles.nowPlayingArtist}>{currentTrack.artist || "Artista Desconhecido"}</Text>
 
               {/* Barra de Progresso */}
               <View style={styles.progressContainer}>
@@ -88,50 +110,62 @@ export function GroupAudioQueueBottomSheet({
                 </View>
               </View>
 
-              {/* Controles de Playback */}
+              {/* Controles de Reprodução */}
               {isGold ? (
                 <View style={styles.controlsRow}>
                   <TouchableOpacity
                     onPress={isPlaying ? onPause : onPlay}
                     style={styles.mainPlayButton}
+                    activeOpacity={0.8}
                   >
-                    <Ionicons name={isPlaying ? "pause" : "play"} size={28} color="#000000" />
+                    <Ionicons name={isPlaying ? "pause" : "play"} size={26} color="#000000" />
                   </TouchableOpacity>
 
-                  <TouchableOpacity onPress={onSkip} style={styles.skipButton}>
-                    <Ionicons name="play-skip-forward" size={22} color="#FFB800" />
+                  <TouchableOpacity onPress={onSkip} style={styles.skipButton} activeOpacity={0.8}>
+                    <Ionicons name="play-skip-forward" size={20} color="#FFB800" />
+                    <Text style={styles.skipText}>Pular</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.listenerNotice}>
-                  <Ionicons name="headset" size={16} color="#8E8E93" />
-                  <Text style={styles.listenerNoticeText}>Ouvindo sincronizado com a Tribo</Text>
+                  <Ionicons name="headset" size={15} color="#8E8E93" />
+                  <Text style={styles.listenerNoticeText}>Ouvindo sincronizado na Tribo</Text>
                 </View>
               )}
             </View>
           ) : (
             <View style={styles.emptyPlayerCard}>
-              <Ionicons name="musical-notes-outline" size={32} color="#333333" />
-              <Text style={styles.emptyPlayerText}>Nenhuma música tocando no momento</Text>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="musical-notes" size={28} color="#FFB800" />
+              </View>
+              <Text style={styles.emptyPlayerTitle}>Nenhuma música tocando agora</Text>
+              <Text style={styles.emptyPlayerSub}>
+                Toque no botão abaixo para escolher uma música do seu celular e iniciar a reprodução!
+              </Text>
             </View>
           )}
 
-          {/* Seção: Lista a Seguir */}
-          <Text style={[styles.sectionLabel, { marginHorizontal: 20, marginTop: 14, marginBottom: 8 }]}>
-            A SEGUIR NA FILA ({queueList.length})
-          </Text>
+          {/* Seção: A Seguir */}
+          <View style={styles.queueHeaderRow}>
+            <Text style={styles.queueSectionLabel}>A SEGUIR NA FILA ({queueList.length})</Text>
+            {queueList.length > 0 && (
+              <Text style={styles.queueHelperText}>Tocam automaticamente em sequência</Text>
+            )}
+          </View>
 
           <FlatList
             data={queueList}
             keyExtractor={(item, index) => item.id || String(index)}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 10 }}
             renderItem={({ item, index }) => (
               <View style={styles.queueItem}>
-                <Text style={styles.queueIndex}>{index + 1}º</Text>
+                <View style={styles.indexCircle}>
+                  <Text style={styles.queueIndex}>{index + 1}º</Text>
+                </View>
                 <View style={styles.queueInfo}>
                   <Text numberOfLines={1} style={styles.queueTitle}>{item.title}</Text>
                   <Text numberOfLines={1} style={styles.queueArtist}>
-                    {item.artist} • {formatTime(item.duration)}
+                    {item.artist || "Desconhecido"} • {formatTime(item.duration)}
                   </Text>
                 </View>
 
@@ -148,23 +182,26 @@ export function GroupAudioQueueBottomSheet({
             )}
             ListEmptyComponent={
               <View style={styles.emptyQueueBox}>
-                <Text style={styles.emptyQueueText}>A fila está vazia.</Text>
+                <Text style={styles.emptyQueueText}>Não há mais músicas na fila de espera.</Text>
               </View>
             }
           />
 
-          {/* Rodapé de Ação com Safe Area Spacing */}
+          {/* Rodapé com Botão Principal e Instrução */}
           <View style={styles.footer}>
             {isGold ? (
               <TouchableOpacity style={styles.addTrackButton} onPress={onOpenAddModal} activeOpacity={0.85}>
                 <Ionicons name="add-circle" size={22} color="#000000" />
-                <Text style={styles.addTrackButtonText}>Adicionar Música da Minha Galeria</Text>
+                <View style={{ alignItems: "center" }}>
+                  <Text style={styles.addTrackButtonText}>Adicionar Música à Fila</Text>
+                  <Text style={styles.addTrackSubText}>Escolha arquivos .mp3 do seu celular ou nuvem</Text>
+                </View>
               </TouchableOpacity>
             ) : (
               <View style={styles.goldRestrictionBox}>
-                <Ionicons name="star" size={14} color="#FFB800" />
+                <Ionicons name="star" size={15} color="#FFB800" />
                 <Text style={styles.goldRestrictionText}>
-                  Apenas membros com Selo Dourado podem adicionar faixas e controlar a reprodução.
+                  Apenas membros com Selo Dourado podem colocar músicas na fila do grupo.
                 </Text>
               </View>
             )}
@@ -190,8 +227,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderTopWidth: 1,
     borderTopColor: "#1F1F1F",
-    maxHeight: SCREEN_HEIGHT * 0.88,
-    minHeight: SCREEN_HEIGHT * 0.58
+    maxHeight: SCREEN_HEIGHT * 0.90,
+    minHeight: SCREEN_HEIGHT * 0.60
   },
   dragHandle: {
     width: 36,
@@ -205,10 +242,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#141414"
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 10
   },
   headerTitleRow: {
     flexDirection: "row",
@@ -217,23 +253,60 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700"
+    fontSize: 16.5,
+    fontWeight: "800"
   },
-  sectionLabel: {
+  headerSubtitle: {
     color: "#8E8E93",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1
+    fontSize: 11.5,
+    marginTop: 2
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#141414",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  permissionBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    gap: 8
+  },
+  goldBannerBg: {
+    backgroundColor: "#171400",
+    borderWidth: 0.5,
+    borderColor: "#FFB80033"
+  },
+  listenerBannerBg: {
+    backgroundColor: "#121212",
+    borderWidth: 0.5,
+    borderColor: "#1F1F1F"
+  },
+  permissionText: {
+    fontSize: 11.5,
+    flex: 1
+  },
+  goldText: {
+    color: "#FFB800",
+    fontWeight: "600"
+  },
+  listenerText: {
+    color: "#8E8E93"
   },
   nowPlayingCard: {
     backgroundColor: "#121212",
     marginHorizontal: 16,
-    marginTop: 12,
-    padding: 16,
+    padding: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(255, 184, 0, 0.25)"
+    borderColor: "rgba(255, 184, 0, 0.3)"
   },
   nowPlayingHeader: {
     flexDirection: "row",
@@ -241,22 +314,47 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6
   },
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5
+  },
+  greenPulse: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#22c55e"
+  },
+  sectionLabel: {
+    color: "#22c55e",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5
+  },
+  addedByTag: {
+    backgroundColor: "#1C1700",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: "#FFB80033"
+  },
   addedByText: {
     color: "#8E8E93",
-    fontSize: 12
+    fontSize: 11
   },
   nowPlayingTitle: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800"
   },
   nowPlayingArtist: {
     color: "#A1A1AA",
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 2
   },
   progressContainer: {
-    marginTop: 14
+    marginTop: 10
   },
   progressBarBg: {
     height: 4,
@@ -274,7 +372,7 @@ const styles = StyleSheet.create({
     marginTop: 4
   },
   timeText: {
-    color: "#636366",
+    color: "#71717A",
     fontSize: 11,
     fontWeight: "600"
   },
@@ -282,30 +380,38 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 12,
-    gap: 18
+    marginTop: 10,
+    gap: 16
   },
   mainPlayButton: {
     backgroundColor: "#FFB800",
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center"
   },
   skipButton: {
-    backgroundColor: "#1C1C1E",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center"
+    backgroundColor: "#1C1700",
+    borderWidth: 1,
+    borderColor: "#FFB80044",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    gap: 5
+  },
+  skipText: {
+    color: "#FFB800",
+    fontSize: 12,
+    fontWeight: "700"
   },
   listenerNotice: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
+    marginTop: 10,
     gap: 6
   },
   listenerNoticeText: {
@@ -315,61 +421,105 @@ const styles = StyleSheet.create({
   emptyPlayerCard: {
     backgroundColor: "#121212",
     marginHorizontal: 16,
-    marginTop: 12,
-    padding: 20,
+    padding: 16,
     borderRadius: 16,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#1C1C1E"
   },
-  emptyPlayerText: {
-    color: "#8E8E93",
+  emptyIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#1C1700",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#FFB80044",
+    marginBottom: 8
+  },
+  emptyPlayerTitle: {
+    color: "#FFFFFF",
     fontSize: 14,
-    marginTop: 8
+    fontWeight: "700"
+  },
+  emptyPlayerSub: {
+    color: "#8E8E93",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 4,
+    lineHeight: 16,
+    paddingHorizontal: 10
+  },
+  queueHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: 18,
+    marginTop: 14,
+    marginBottom: 8
+  },
+  queueSectionLabel: {
+    color: "#8E8E93",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8
+  },
+  queueHelperText: {
+    color: "#52525B",
+    fontSize: 10.5
   },
   queueItem: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#121212",
-    padding: 12,
+    padding: 10,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 7,
     borderWidth: 0.5,
     borderColor: "#1F1F1F"
   },
+  indexCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#1C1700",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10
+  },
   queueIndex: {
     color: "#FFB800",
-    fontSize: 12,
-    fontWeight: "800",
-    width: 26
+    fontSize: 11,
+    fontWeight: "800"
   },
   queueInfo: {
     flex: 1
   },
   queueTitle: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "600"
   },
   queueArtist: {
     color: "#8E8E93",
-    fontSize: 12,
-    marginTop: 2
+    fontSize: 11.5,
+    marginTop: 1
   },
   deleteButton: {
     padding: 6
   },
   emptyQueueBox: {
-    paddingVertical: 16,
+    paddingVertical: 12,
     alignItems: "center"
   },
   emptyQueueText: {
-    color: "#636366",
-    fontSize: 13
+    color: "#52525B",
+    fontSize: 12
   },
   footer: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: "#141414"
   },
@@ -378,19 +528,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 14,
     gap: 8,
     shadowColor: "#FFB800",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 4
   },
   addTrackButtonText: {
     color: "#000000",
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "800"
+  },
+  addTrackSubText: {
+    color: "#3D2B00",
+    fontSize: 10.5,
+    fontWeight: "600"
   },
   goldRestrictionBox: {
     flexDirection: "row",

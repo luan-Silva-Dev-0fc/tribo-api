@@ -12,7 +12,7 @@ import {
   Dimensions
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as MediaLibrary from "expo-media-library";
 import { trackApi } from "../../services/trackApi";
 
@@ -28,7 +28,7 @@ export function SelectTrackModal({ visible, onClose, onSelectTrack }) {
   const insets = useSafeAreaInsets();
   const [tracks, setTracks] = useState([]);
   const [deviceAudios, setDeviceAudios] = useState([]);
-  const [activeTab, setActiveTab] = useState("device"); // Padrão: celular
+  const [activeTab, setActiveTab] = useState("device");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingDevice, setLoadingDevice] = useState(false);
@@ -49,13 +49,12 @@ export function SelectTrackModal({ visible, onClose, onSelectTrack }) {
       const data = await trackApi.listMyTracks(term);
       setTracks(data || []);
     } catch (e) {
-      console.warn("Erro ao buscar músicas da nuvem:", e);
+      console.warn("Erro ao carregar faixas da nuvem:", e);
     } finally {
       setLoading(false);
     }
   };
 
-  // Carrega áudios locais diretamente da memória do celular via MediaLibrary nativo
   const loadDeviceAudios = async () => {
     try {
       setLoadingDevice(true);
@@ -81,7 +80,6 @@ export function SelectTrackModal({ visible, onClose, onSelectTrack }) {
     }
   };
 
-  // Upload e início imediato da reprodução
   const handleSelectDeviceAudio = async (asset) => {
     setUploading(true);
     try {
@@ -101,13 +99,12 @@ export function SelectTrackModal({ visible, onClose, onSelectTrack }) {
         onClose();
       }
     } catch (err) {
-      Alert.alert("Erro ao Enviar Áudio", err.message || "Não foi possível carregar a faixa.");
+      Alert.alert("Erro ao Enviar", err.message || "Não foi possível carregar a faixa.");
     } finally {
       setUploading(false);
     }
   };
 
-  // Filtra as músicas do celular pela busca
   const filteredDeviceAudios = deviceAudios.filter((item) => {
     if (!search.trim()) return true;
     const name = (item.filename || item.name || "").toLowerCase();
@@ -125,15 +122,23 @@ export function SelectTrackModal({ visible, onClose, onSelectTrack }) {
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Transmitir Música no Grupo</Text>
-              <Text style={styles.subtitle}>Escolha uma música para tocar na Tribo</Text>
+              <Text style={styles.title}>Escolher Música para o Grupo</Text>
+              <Text style={styles.subtitle}>A faixa tocará sincronizada para todos na Tribo</Text>
             </View>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={24} color="#8E8E93" />
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.closeBtn}>
+              <Ionicons name="close" size={22} color="#8E8E93" />
             </TouchableOpacity>
           </View>
 
-          {/* Abas: Celular vs Nuvem */}
+          {/* Dica / Instrução Rápida */}
+          <View style={styles.tipBox}>
+            <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color="#FFB800" />
+            <Text style={styles.tipText}>
+              Toque em qualquer música abaixo para iniciar a transmissão imediatamente.
+            </Text>
+          </View>
+
+          {/* Abas */}
           <View style={styles.tabRow}>
             <TouchableOpacity
               style={[styles.tabButton, activeTab === "device" && styles.tabButtonActive]}
@@ -170,12 +175,12 @@ export function SelectTrackModal({ visible, onClose, onSelectTrack }) {
             </TouchableOpacity>
           </View>
 
-          {/* Campo de Busca Rápida */}
+          {/* Busca */}
           <View style={styles.searchBar}>
             <Ionicons name="search" size={16} color="#8E8E93" />
             <TextInput
               style={styles.input}
-              placeholder={activeTab === "device" ? "Filtrar músicas do aparelho..." : "Filtrar galeria da nuvem..."}
+              placeholder={activeTab === "device" ? "Buscar pelo nome do arquivo ou música..." : "Buscar na sua galeria na nuvem..."}
               placeholderTextColor="#636366"
               value={search}
               onChangeText={setSearch}
@@ -187,7 +192,7 @@ export function SelectTrackModal({ visible, onClose, onSelectTrack }) {
             )}
           </View>
 
-          {/* Aba: Músicas do Celular (Nativo MediaLibrary) */}
+          {/* Lista: Celular */}
           {activeTab === "device" && (
             loadingDevice || uploading ? (
               <View style={{ alignItems: "center", marginVertical: 35 }}>
@@ -218,17 +223,22 @@ export function SelectTrackModal({ visible, onClose, onSelectTrack }) {
                         {formatDuration(item.duration)} • Armazenamento Local
                       </Text>
                     </View>
-                    <View style={styles.playAddBadge}>
-                      <Ionicons name="play" size={16} color="#000000" />
+                    <View style={styles.playActionBtn}>
+                      <Ionicons name="play" size={13} color="#000000" />
+                      <Text style={styles.playActionText}>Tocar</Text>
                     </View>
                   </TouchableOpacity>
                 )}
                 ListEmptyComponent={
                   <View style={styles.emptyBox}>
                     <Ionicons name="phone-portrait-outline" size={36} color="#333333" />
-                    <Text style={styles.emptyText}>Nenhuma música encontrada no aparelho.</Text>
-                    <TouchableOpacity onPress={loadDeviceAudios} style={{ marginTop: 12, backgroundColor: "#FFB800", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16 }}>
-                      <Text style={{ color: "#000000", fontWeight: "800" }}>Atualizar Permissões de Áudio</Text>
+                    <Text style={styles.emptyText}>Nenhum arquivo de áudio encontrado.</Text>
+                    <Text style={styles.emptySubText}>
+                      Certifique-se de que possui arquivos .mp3 salvos no celular e que autorizou o acesso.
+                    </Text>
+                    <TouchableOpacity onPress={loadDeviceAudios} style={styles.permissionBtn}>
+                      <Ionicons name="refresh" size={16} color="#000000" />
+                      <Text style={styles.permissionBtnText}>Atualizar Permissões</Text>
                     </TouchableOpacity>
                   </View>
                 }
@@ -236,7 +246,7 @@ export function SelectTrackModal({ visible, onClose, onSelectTrack }) {
             )
           )}
 
-          {/* Aba: Músicas na Nuvem */}
+          {/* Lista: Nuvem */}
           {activeTab === "cloud" && (
             loading ? (
               <ActivityIndicator size="large" color="#FFB800" style={{ marginVertical: 30 }} />
@@ -260,20 +270,21 @@ export function SelectTrackModal({ visible, onClose, onSelectTrack }) {
                     <View style={styles.trackInfo}>
                       <Text numberOfLines={1} style={styles.trackTitle}>{item.title}</Text>
                       <Text numberOfLines={1} style={styles.trackArtist}>
-                        {item.artist} • {formatDuration(item.duration)}
+                        {item.artist || "Desconhecido"} • {formatDuration(item.duration)}
                       </Text>
                     </View>
-                    <View style={styles.playAddBadge}>
-                      <Ionicons name="play" size={16} color="#000000" />
+                    <View style={styles.playActionBtn}>
+                      <Ionicons name="play" size={13} color="#000000" />
+                      <Text style={styles.playActionText}>Tocar</Text>
                     </View>
                   </TouchableOpacity>
                 )}
                 ListEmptyComponent={
                   <View style={styles.emptyBox}>
                     <Ionicons name="cloud-outline" size={36} color="#333333" />
-                    <Text style={styles.emptyText}>Nenhuma música salva na nuvem.</Text>
+                    <Text style={styles.emptyText}>Nenhuma música salva na nuvem ainda.</Text>
                     <Text style={styles.emptySubText}>
-                      Toque na aba "Músicas do Celular" para tocar os arquivos do seu aparelho!
+                      Toque na aba "Músicas do Celular" ao lado para tocar qualquer áudio do aparelho!
                     </Text>
                   </View>
                 }
@@ -299,10 +310,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#0A0A0A",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingTop: 12,
-    maxHeight: SCREEN_HEIGHT * 0.88,
-    minHeight: SCREEN_HEIGHT * 0.6,
+    maxHeight: SCREEN_HEIGHT * 0.90,
+    minHeight: SCREEN_HEIGHT * 0.62,
     borderTopWidth: 1,
     borderTopColor: "#1F1F1F"
   },
@@ -318,24 +329,50 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12
+    marginBottom: 10
   },
   title: {
     color: "#FFFFFF",
-    fontSize: 17,
+    fontSize: 16.5,
     fontWeight: "800"
   },
   subtitle: {
     color: "#8E8E93",
-    fontSize: 12,
+    fontSize: 11.5,
     marginTop: 2
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#141414",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  tipBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#141100",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 8,
+    marginBottom: 12,
+    borderWidth: 0.5,
+    borderColor: "#FFB80033"
+  },
+  tipText: {
+    color: "#FFB800",
+    fontSize: 11.5,
+    fontWeight: "600",
+    flex: 1
   },
   tabRow: {
     flexDirection: "row",
     backgroundColor: "#121212",
     borderRadius: 12,
     padding: 3,
-    marginBottom: 12
+    marginBottom: 10
   },
   tabButton: {
     flex: 1,
@@ -408,20 +445,26 @@ const styles = StyleSheet.create({
   },
   trackArtist: {
     color: "#8E8E93",
-    fontSize: 11,
+    fontSize: 11.5,
     marginTop: 2
   },
-  playAddBadge: {
+  playActionBtn: {
     backgroundColor: "#FFB800",
-    width: 28,
-    height: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center"
+    gap: 4
+  },
+  playActionText: {
+    color: "#000000",
+    fontSize: 11.5,
+    fontWeight: "800"
   },
   emptyBox: {
     alignItems: "center",
-    paddingVertical: 28,
+    paddingVertical: 26,
     paddingHorizontal: 20
   },
   emptyText: {
@@ -432,8 +475,24 @@ const styles = StyleSheet.create({
   },
   emptySubText: {
     color: "#636366",
-    fontSize: 11,
+    fontSize: 11.5,
     textAlign: "center",
-    marginTop: 4
+    marginTop: 4,
+    lineHeight: 16
+  },
+  permissionBtn: {
+    backgroundColor: "#FFB800",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 18,
+    marginTop: 14,
+    gap: 6
+  },
+  permissionBtnText: {
+    color: "#000000",
+    fontSize: 12,
+    fontWeight: "800"
   }
 });

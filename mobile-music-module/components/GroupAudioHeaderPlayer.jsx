@@ -9,6 +9,13 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
+function formatTime(ms) {
+  const totalSec = Math.floor((ms || 0) / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s < 10 ? "0" : ""}${s}`;
+}
+
 export function GroupAudioHeaderPlayer({
   currentTrack,
   isPlaying,
@@ -23,8 +30,6 @@ export function GroupAudioHeaderPlayer({
   onOpenQueue
 }) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const isPlayingRef = useRef(isPlaying);
-  isPlayingRef.current = isPlaying;
 
   useEffect(() => {
     let anim = null;
@@ -47,6 +52,7 @@ export function GroupAudioHeaderPlayer({
     };
   }, [isPlaying]);
 
+  // Se nenhuma música estiver tocando
   if (!currentTrack) {
     if (isGold) {
       return (
@@ -57,16 +63,20 @@ export function GroupAudioHeaderPlayer({
         >
           <View style={styles.idleLeft}>
             <View style={styles.idleIconBox}>
-              <Ionicons name="musical-notes" size={16} color="#FFB800" />
+              <Ionicons name="musical-notes" size={18} color="#FFB800" />
             </View>
-            <View style={{ flex: 1, marginLeft: 10 }}>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <View style={styles.liveTagRow}>
+                <View style={styles.idleDot} />
+                <Text style={styles.idleTagText}>TRANSMISSÃO DE ÁUDIO</Text>
+              </View>
               <Text style={styles.idleTitle}>Transmitir Música no Grupo</Text>
-              <Text style={styles.idleSub}>Toque para adicionar faixas da sua galeria à fila</Text>
+              <Text style={styles.idleSub}>Toque para escolher faixas e ouvir com a Tribo</Text>
             </View>
           </View>
           <View style={styles.idleActionBtn}>
-            <Ionicons name="add" size={14} color="#000000" />
-            <Text style={styles.idleActionText}>Tocar</Text>
+            <Ionicons name="play" size={13} color="#000000" />
+            <Text style={styles.idleActionText}>Iniciar</Text>
           </View>
         </TouchableOpacity>
       );
@@ -86,34 +96,47 @@ export function GroupAudioHeaderPlayer({
 
   return (
     <View style={styles.container}>
+      {/* Barra de Progresso Superior Dourada */}
       <View style={styles.progressBarTrack}>
         <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
       </View>
 
       <View style={styles.content}>
+        {/* Disco de Vinil Animado */}
         <TouchableOpacity activeOpacity={0.8} onPress={onOpenQueue} style={styles.discWrapper}>
           <Animated.View style={[styles.disc, { transform: [{ rotate: spin }] }]}>
-            <Ionicons name="disc" size={38} color="#FFB800" />
+            <Ionicons name="disc" size={40} color="#FFB800" />
           </Animated.View>
         </TouchableOpacity>
 
+        {/* Informações da Música */}
         <TouchableOpacity activeOpacity={0.8} onPress={onOpenQueue} style={styles.infoWrapper}>
+          <View style={styles.liveBadgeRow}>
+            <View style={styles.pulseDot} />
+            <Text style={styles.liveBadgeText}>AO VIVO NA TRIBO</Text>
+            <Text style={styles.timeCounterText}>
+              • {formatTime(progressMs)} / {formatTime(totalDurationMs)}
+            </Text>
+          </View>
+
           <Text numberOfLines={1} style={styles.title}>
             {currentTrack.title}
           </Text>
+
           <View style={styles.metaRow}>
             <Text numberOfLines={1} style={styles.artist}>
-              {currentTrack.artist}
+              {currentTrack.artist || "Desconhecido"}
             </Text>
             {currentTrack.added_by && (
               <View style={styles.badgeTag}>
-                <Ionicons name="star" size={10} color="#FFB800" />
-                <Text style={styles.badgeText}>@{currentTrack.added_by.username}</Text>
+                <Ionicons name="star" size={9} color="#FFB800" />
+                <Text style={styles.badgeText}>@{currentTrack.added_by.username || currentTrack.added_by.name}</Text>
               </View>
             )}
           </View>
         </TouchableOpacity>
 
+        {/* Ações e Controles */}
         <View style={styles.actionsRow}>
           {isGold ? (
             <>
@@ -124,7 +147,7 @@ export function GroupAudioHeaderPlayer({
               >
                 <Ionicons
                   name={isPlaying ? "pause" : "play"}
-                  size={20}
+                  size={18}
                   color="#000000"
                 />
               </TouchableOpacity>
@@ -134,7 +157,7 @@ export function GroupAudioHeaderPlayer({
                 style={styles.iconButton}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="play-skip-forward" size={18} color="#FFB800" />
+                <Ionicons name="play-skip-forward" size={17} color="#FFB800" />
               </TouchableOpacity>
             </>
           ) : (
@@ -151,6 +174,7 @@ export function GroupAudioHeaderPlayer({
             </TouchableOpacity>
           )}
 
+          {/* Botão de Fila */}
           <TouchableOpacity
             onPress={onOpenQueue}
             style={styles.queueButton}
@@ -173,9 +197,9 @@ export default GroupAudioHeaderPlayer;
 
 const styles = StyleSheet.create({
   idleBanner: {
-    backgroundColor: "rgba(20, 17, 0, 0.95)",
+    backgroundColor: "#0D0B00",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 184, 0, 0.3)",
+    borderBottomColor: "rgba(255, 184, 0, 0.25)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -189,22 +213,39 @@ const styles = StyleSheet.create({
     flex: 1
   },
   idleIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#2B2200",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#1F1800",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#FFB80055"
   },
+  liveTagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4
+  },
+  idleDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#FFB800"
+  },
+  idleTagText: {
+    color: "#FFB800",
+    fontSize: 9.5,
+    fontWeight: "800",
+    letterSpacing: 0.5
+  },
   idleTitle: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: "700"
   },
   idleSub: {
-    color: "#FFB800",
+    color: "#A1A1AA",
     fontSize: 11,
     marginTop: 1
   },
@@ -212,10 +253,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFB800",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    gap: 4
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 16,
+    gap: 5
   },
   idleActionText: {
     color: "#000000",
@@ -223,9 +264,9 @@ const styles = StyleSheet.create({
     fontWeight: "800"
   },
   container: {
-    backgroundColor: "rgba(10, 10, 10, 0.94)",
+    backgroundColor: "rgba(10, 10, 10, 0.96)",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 184, 0, 0.25)",
+    borderBottomColor: "rgba(255, 184, 0, 0.22)",
     zIndex: 100
   },
   progressBarTrack: {
@@ -247,14 +288,37 @@ const styles = StyleSheet.create({
     marginRight: 10
   },
   disc: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     justifyContent: "center",
     alignItems: "center"
   },
   infoWrapper: {
     flex: 1,
     justifyContent: "center"
+  },
+  liveBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 1
+  },
+  pulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#22c55e"
+  },
+  liveBadgeText: {
+    color: "#22c55e",
+    fontSize: 9.5,
+    fontWeight: "800",
+    letterSpacing: 0.5
+  },
+  timeCounterText: {
+    color: "#8E8E93",
+    fontSize: 9.5,
+    fontWeight: "600"
   },
   title: {
     color: "#FFFFFF",
@@ -264,17 +328,17 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 2
+    marginTop: 1
   },
   artist: {
     color: "#8E8E93",
-    fontSize: 12,
+    fontSize: 11.5,
     maxWidth: 110
   },
   badgeTag: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1A1500",
+    backgroundColor: "#1C1700",
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 8,
@@ -284,20 +348,20 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: "#FFB800",
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: "700",
     marginLeft: 3
   },
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8
+    gap: 7
   },
   goldPlayButton: {
     backgroundColor: "#FFB800",
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center"
   },
