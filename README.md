@@ -132,6 +132,65 @@ O servidor estará disponível por padrão em `http://localhost:3000`.
 
 ---
 
+### Deploy e Gerenciamento de Variáveis de Ambiente no Railway
+
+#### 1. Autenticação no Railway CLI
+Para autenticar na sua conta do Railway via terminal:
+```bash
+npx @railway/cli login
+```
+
+#### 2. Vincular o Projeto Local ao Railway
+Para associar o diretório do projeto ao serviço na nuvem:
+```bash
+npx @railway/cli link
+```
+
+#### 3. Subir e Atualizar Variáveis de Ambiente (.env)
+Para adicionar ou atualizar uma variável no Railway:
+```bash
+npx @railway/cli variable set NOME_DA_VARIAVEL="valor"
+```
+
+Para atualizar múltiplas variáveis simultaneamente:
+```bash
+npx @railway/cli variable set VARIAVEL_1="valor1" VARIAVEL_2="valor2"
+```
+
+Para consultar todas as variáveis configuradas em produção:
+```bash
+npx @railway/cli variable list
+```
+
+#### 4. Realizar Deploy
+
+**Método A - Deploy Automático via Git (Recomendado):**
+O Railway está conectado ao repositório do GitHub. Qualquer commit enviado para a branch `main` dispara o build e deploy automaticamente:
+```bash
+git add .
+git commit -m "feat: novas funcionalidades"
+git push origin main
+```
+
+**Método B - Deploy Manual via Railway CLI:**
+Para enviar o código atual diretamente para publicação:
+```bash
+npx @railway/cli up
+```
+
+#### 5. Monitorar Logs e Status em Produção
+Para visualizar os logs do servidor em tempo real:
+```bash
+npx @railway/cli logs
+```
+
+Para consultar o status do serviço:
+```bash
+npx @railway/cli status
+```
+
+---
+
 ### Estrutura do Projeto
 
 ```
