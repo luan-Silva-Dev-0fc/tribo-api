@@ -2,10 +2,16 @@ const express = require('express');
 const userController = require('../controllers/UserController');
 const followController = require('../controllers/FollowController');
 const blockController = require('../controllers/BlockController');
-const authMiddleware = require('../middlewares/auth');
-const { optionalAuth } = require('../middlewares/auth');
+const trackController = require('../controllers/TrackController');
+const { uploadFile } = require('../middlewares/upload');
 
 const router = express.Router();
+
+// Galeria de Músicas do Usuário
+router.get('/me/tracks', authMiddleware, trackController.listUserTracks);
+router.post('/me/tracks', authMiddleware, uploadFile, trackController.createTrack);
+router.delete('/me/tracks/:id', authMiddleware, trackController.deleteTrack);
+
 
 router.get('/settings', authMiddleware, userController.getSettings);
 router.patch('/settings', authMiddleware, userController.updateSettings);

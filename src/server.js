@@ -7,9 +7,9 @@ const http = require('http');
 const { Server } = require('socket.io');
 const app = require('./app');
 const env = require('./config/env');
-const { logger } = require('./utils/logger');
 const { initializeChatSocket } = require('./sockets/chat');
 const { initializeNotificationSocket } = require('./sockets/notification');
+const { initializeGroupAudioSocket } = require('./sockets/groupAudio');
 const { setupSuperAdmin } = require('./utils/setupAdmin');
 
 const server = http.createServer(app);
@@ -25,6 +25,7 @@ global.io = io;
 
 initializeChatSocket(io);
 initializeNotificationSocket(io);
+initializeGroupAudioSocket(io);
 
 setupSuperAdmin().then(() => {
   server.listen(env.PORT, '0.0.0.0', () => {

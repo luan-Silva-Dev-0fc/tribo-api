@@ -19,6 +19,7 @@ const youtubeNewsRoutes = require('./youtubeNews');
 const reelsRoutes = require('./reels');
 const groupsRoutes = require('./groups');
 const stickerRoutes = require('./stickers');
+const tracksRoutes = require('./tracks');
 
 const router = express.Router();
 
@@ -26,6 +27,7 @@ router.use('/', authRoutes);
 router.use('/auth', authRoutes);
 router.use('/user', userRoutes);
 router.use('/users', userRoutes);
+router.use('/tracks', tracksRoutes);
 router.use('/posts', postRoutes);
 router.use('/comments', commentRoutes);
 router.use('/likes', likeRoutes);

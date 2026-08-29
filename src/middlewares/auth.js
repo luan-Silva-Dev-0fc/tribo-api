@@ -87,7 +87,11 @@ async function requireAdmin(req, res, next) {
   next();
 }
 
+const { requireGoldBadge, isGoldUser } = require('./goldBadge');
+
 module.exports = auth;
 module.exports.auth = auth;
 module.exports.optionalAuth = optionalAuth;
 module.exports.requireAdmin = requireAdmin;
+module.exports.requireGoldBadge = requireGoldBadge;
+module.exports.isGoldUser = isGoldUser;

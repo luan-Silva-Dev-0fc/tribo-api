@@ -1,9 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const GroupController = require('../controllers/GroupController');
-const { auth } = require('../middlewares/auth');
+const GroupAudioController = require('../controllers/GroupAudioController');
+const { auth, requireGoldBadge } = require('../middlewares/auth');
 
 router.use(auth);
+
+// Transmissão e Fila de Músicas no Grupo
+router.get('/:id/queue', GroupAudioController.getGroupQueue);
+router.post('/:id/queue', requireGoldBadge, GroupAudioController.addToGroupQueue);
+router.post('/:id/playback/:action', requireGoldBadge, GroupAudioController.controlPlayback);
+router.post('/:id/playback', requireGoldBadge, GroupAudioController.controlPlayback);
+
 
 router.post('/', GroupController.createGroup);
 router.get('/', GroupController.listMyGroups);
