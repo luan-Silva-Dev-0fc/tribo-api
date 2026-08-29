@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { trackApi } from '../services/trackApi';
+import { trackApi } from '../../services/trackApi';
 
 export function SelectTrackModal({ visible, token, onClose, onSelectTrack }) {
   const [tracks, setTracks] = useState([]);
@@ -178,3 +178,4 @@ const styles = StyleSheet.create({
     fontSize: 14
   }
 });
+

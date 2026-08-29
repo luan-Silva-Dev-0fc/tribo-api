@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { Audio } from 'expo-av';
-import { trackApi } from '../services/trackApi';
+import { trackApi } from '../../services/trackApi';
 
 export function UserMusicGalleryScreen({ token, navigation }) {
   const [tracks, setTracks] = useState([]);
@@ -357,3 +357,4 @@ const styles = StyleSheet.create({
     shadowRadius: 6
   }
 });
+
