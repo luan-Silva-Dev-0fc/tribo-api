@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, memo } from "react";
+﻿import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
-export const GroupAudioHeaderPlayer = memo(function GroupAudioHeaderPlayer({
+export function GroupAudioHeaderPlayer({
   currentTrack,
   isPlaying,
   isGold,
@@ -23,28 +23,27 @@ export const GroupAudioHeaderPlayer = memo(function GroupAudioHeaderPlayer({
   onOpenQueue
 }) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const animRef = useRef(null);
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
 
   useEffect(() => {
+    let anim = null;
     if (isPlaying) {
-      animRef.current = Animated.loop(
+      rotateAnim.setValue(0);
+      anim = Animated.loop(
         Animated.timing(rotateAnim, {
           toValue: 1,
-          duration: 8000,
+          duration: 6000,
           easing: Easing.linear,
           useNativeDriver: true
         })
       );
-      animRef.current.start();
+      anim.start();
     } else {
-      if (animRef.current) {
-        animRef.current.stop();
-      }
+      rotateAnim.stopAnimation();
     }
     return () => {
-      if (animRef.current) {
-        animRef.current.stop();
-      }
+      if (anim) anim.stop();
     };
   }, [isPlaying]);
 
@@ -168,7 +167,9 @@ export const GroupAudioHeaderPlayer = memo(function GroupAudioHeaderPlayer({
       </View>
     </View>
   );
-});
+}
+
+export default GroupAudioHeaderPlayer;
 
 const styles = StyleSheet.create({
   idleBanner: {
