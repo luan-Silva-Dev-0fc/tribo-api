@@ -3,6 +3,7 @@ const userController = require('../controllers/UserController');
 const followController = require('../controllers/FollowController');
 const blockController = require('../controllers/BlockController');
 const trackController = require('../controllers/TrackController');
+const { auth: authMiddleware, optionalAuth } = require('../middlewares/auth');
 const { uploadFile } = require('../middlewares/upload');
 
 const router = express.Router();
