@@ -49,7 +49,13 @@ async function generateAvailableUsername(seed) {
 async function register(req, res, next) {
   try {
     const { name, lastName, email, password, username, bio } = req.body;
-    const existingUser = await findUserByEmail(email);
+    const cleanEmail = String(email || "").trim().toLowerCase();
+
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return res.status(400).json({ message: "E-mail inválido" });
+    }
+
+    const existingUser = await findUserByEmail(cleanEmail);
 
     if (existingUser) {
       return res.status(409).json({ message: "E-mail já cadastrado" });
@@ -74,7 +80,7 @@ async function register(req, res, next) {
     );
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const verificationCode = String(Math.floor(100000 + Math.random() * 900000));
+    const verificationCode = String(Math.floor(100000 + Math.random() * 900000)).padStart(6, '0');
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
     const user = await createUser({
@@ -82,7 +88,7 @@ async function register(req, res, next) {
       first_name: name,
       last_name: lastName || null,
       username: finalUsername,
-      email,
+      email: cleanEmail,
       password: hashedPassword,
       avatar_url: avatarUrl,
       bio: bio || null,
@@ -94,28 +100,28 @@ async function register(req, res, next) {
 
     const token = signToken({ sub: user.id, email: user.email });
 
+    let emailSent = false;
+    let emailProvider = null;
     try {
-      await sendVerificationEmail(email, verificationCode, name);
+      const sendRes = await sendVerificationEmail(cleanEmail, verificationCode, name);
+      emailSent = true;
+      emailProvider = sendRes?.provider;
     } catch (error) {
-      logger.error('Cadastro concluído, mas o e-mail de verificação não foi enviado', {
-        email,
+      logger.error('Cadastro concluído, mas houve falha ao enviar o e-mail de verificação', {
+        email: cleanEmail,
         code: error.code,
         message: error.message
       });
-      return res.status(201).json({
-        message: 'Cadastro realizado, mas não foi possível enviar o código. Solicite o reenvio.',
-        user: publicUser(user),
-        token,
-        verificationEmailSent: false
-      });
     }
 
-    logger.info("Usuário registrado", { email });
+    logger.info("Usuário registrado", { email: cleanEmail, emailSent, emailProvider });
     return res.status(201).json({
-      message: "Cadastro realizado com sucesso! Enviamos um código de verificação para o seu e-mail.",
+      message: emailSent
+        ? "Cadastro realizado com sucesso! Enviamos um código de verificação para o seu e-mail."
+        : "Cadastro realizado, mas não foi possível enviar o código automaticamente. Por favor, solicite o reenvio.",
       user: publicUser(user),
       token,
-      verificationEmailSent: true
+      verificationEmailSent: emailSent
     });
   } catch (error) {
     next(error);
@@ -151,13 +157,17 @@ async function verifyEmail(req, res, next) {
       return res.status(400).json({ message: "Código de verificação expirado. Solicite um novo código." });
     }
 
-    const updated = await updateUserByEmail(email, {
+    const updatePayload = {
       email_verified: true,
       verified: true,
-      badge_type: 'BLUE',
+      badge_type: user.badge_type === 'GOLD' ? 'GOLD' : 'BLUE',
       email_verification_code: null,
       email_verification_expires_at: null
-    });
+    };
+
+    const updated = await updateUserById(user.id, updatePayload) ||
+                    await updateUserByEmail(email, updatePayload) ||
+                    { ...user, ...updatePayload };
 
     logger.info("E-mail verificado e Selo Azul ativado", { email });
     return res.status(200).json({
@@ -185,27 +195,31 @@ async function resendVerificationCode(req, res, next) {
       return res.status(400).json({ message: "Este e-mail já foi verificado" });
     }
 
-    const verificationCode = String(Math.floor(100000 + Math.random() * 900000));
+    const verificationCode = String(Math.floor(100000 + Math.random() * 900000)).padStart(6, '0');
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-    await updateUserByEmail(email, {
+    await updateUserById(user.id, {
       email_verification_code: verificationCode,
       email_verification_expires_at: expiresAt
     });
 
     try {
-      await sendVerificationEmail(email, verificationCode, user.first_name || user.name);
+      const sendRes = await sendVerificationEmail(email, verificationCode, user.first_name || user.name);
+      logger.info("Código de verificação reenviado com sucesso", { email, provider: sendRes?.provider });
+      return res.status(200).json({
+        message: "Código de verificação reenviado com sucesso para o seu e-mail.",
+        verificationEmailSent: true
+      });
     } catch (error) {
       logger.error('Falha ao reenviar o e-mail de verificação', {
         email,
         code: error.code,
         message: error.message
       });
-      return res.status(error.statusCode || 502).json({ message: error.message });
+      return res.status(error.statusCode || 502).json({
+        message: error.message || "Não foi possível enviar o e-mail no momento. Tente novamente."
+      });
     }
-
-    logger.info("Código de verificação reenviado", { email });
-    return res.status(200).json({ message: "Codigo reenviado com sucesso", verificationEmailSent: true });
   } catch (error) {
     next(error);
   }

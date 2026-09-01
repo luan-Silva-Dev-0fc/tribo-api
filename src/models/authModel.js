@@ -95,25 +95,56 @@ async function findUserByUsername(username) {
 }
 
 async function updateUserByEmail(email, payload) {
-  const { data, error } = await supabase.
-  from("users").
-  update(payload).
-  eq("email", email).
-  select().
-  single();
-  if (error) throw error;
-  return data;
+  if (!email) return null;
+  const cleanEmail = String(email).trim().toLowerCase();
+
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .update(payload)
+      .ilike("email", cleanEmail)
+      .select()
+      .maybeSingle();
+    if (!error && data) return data;
+  } catch (err) {}
+
+  try {
+    const [user] = await sql`
+      UPDATE users
+      SET ${sql(payload)}, updated_at = NOW()
+      WHERE LOWER(email) = ${cleanEmail}
+      RETURNING *
+    `;
+    if (user) return user;
+  } catch (err) {}
+
+  return null;
 }
 
 async function updateUserById(id, payload) {
-  const { data, error } = await supabase.
-  from("users").
-  update(payload).
-  eq("id", id).
-  select().
-  single();
-  if (error) throw error;
-  return data;
+  if (!id) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .maybeSingle();
+    if (!error && data) return data;
+  } catch (err) {}
+
+  try {
+    const [user] = await sql`
+      UPDATE users
+      SET ${sql(payload)}, updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
+    if (user) return user;
+  } catch (err) {}
+
+  return null;
 }
 
 module.exports = {
