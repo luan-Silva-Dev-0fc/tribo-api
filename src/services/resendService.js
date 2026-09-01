@@ -44,8 +44,12 @@ function escapeHtml(value) {
 }
 
 function getSenderAddress() {
-  const from = String(env.EMAIL_FROM || 'Tribo <noreply@tribo-brasil.app.br>').replace(/^["']|["']$/g, '').trim();
-  return from || 'Tribo <noreply@tribo-brasil.app.br>';
+  let from = String(env.EMAIL_FROM || '').replace(/^["']|["']$/g, '').trim();
+  // Se estiver usando o domínio de teste do Resend ou estiver vazio, força o domínio verificado
+  if (!from || from.includes('onboarding@resend.dev') || !from.includes('@')) {
+    from = 'Tribo <noreply@tribo-brasil.app.br>';
+  }
+  return from;
 }
 
 function generateEmailTemplate(code, recipientName, appUrl) {
