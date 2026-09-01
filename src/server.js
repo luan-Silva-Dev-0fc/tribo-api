@@ -18,7 +18,14 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  // Live Voice is a real-time media relay. Do not fall back to HTTP polling.
+  transports: ['websocket'],
+  allowUpgrades: false,
+  // Audio chunks should not wait for per-message compression.
+  perMessageDeflate: false,
+  httpCompression: false,
+  maxHttpBufferSize: 128 * 1024
 });
 
 app.set('io', io);

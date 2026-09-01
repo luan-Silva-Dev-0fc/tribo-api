@@ -92,17 +92,30 @@ async function register(req, res, next) {
       badge_type: 'NONE'
     });
 
-    sendVerificationEmail(email, verificationCode, name).catch((err) => {
-      logger.error('Erro assíncrono ao enviar e-mail de verificação:', err);
-    });
-
     const token = signToken({ sub: user.id, email: user.email });
+
+    try {
+      await sendVerificationEmail(email, verificationCode, name);
+    } catch (error) {
+      logger.error('Cadastro concluído, mas o e-mail de verificação não foi enviado', {
+        email,
+        code: error.code,
+        message: error.message
+      });
+      return res.status(201).json({
+        message: 'Cadastro realizado, mas não foi possível enviar o código. Solicite o reenvio.',
+        user: publicUser(user),
+        token,
+        verificationEmailSent: false
+      });
+    }
 
     logger.info("Usuário registrado", { email });
     return res.status(201).json({
       message: "Cadastro realizado com sucesso! Enviamos um código de verificação para o seu e-mail.",
       user: publicUser(user),
-      token
+      token,
+      verificationEmailSent: true
     });
   } catch (error) {
     next(error);
@@ -180,12 +193,19 @@ async function resendVerificationCode(req, res, next) {
       email_verification_expires_at: expiresAt
     });
 
-    sendVerificationEmail(email, verificationCode, user.first_name || user.name).catch((err) => {
-      logger.error('Erro assíncrono ao reenviar e-mail de verificação:', err);
-    });
+    try {
+      await sendVerificationEmail(email, verificationCode, user.first_name || user.name);
+    } catch (error) {
+      logger.error('Falha ao reenviar o e-mail de verificação', {
+        email,
+        code: error.code,
+        message: error.message
+      });
+      return res.status(error.statusCode || 502).json({ message: error.message });
+    }
 
     logger.info("Código de verificação reenviado", { email });
-    return res.status(200).json({ message: "Codigo reenviado com sucesso" });
+    return res.status(200).json({ message: "Codigo reenviado com sucesso", verificationEmailSent: true });
   } catch (error) {
     next(error);
   }
