@@ -116,11 +116,13 @@ async function sendVerificationEmail(toEmail, code, recipientName) {
       });
 
       if (response.error) {
-        logger.warn('Resend retornou erro na entrega, acionando fallback', {
+        logger.warn('Resend retornou erro na entrega:', {
           email: cleanToEmail,
-          error: response.error
+          sender,
+          error: response.error?.message || response.error,
+          name: response.error?.name
         });
-        throw new Error(response.error.message || 'Resend recusou o envio do e-mail');
+        throw new Error(response.error?.message || 'Resend recusou o envio do e-mail');
       }
 
       logger.info('E-mail de verificação enviado com sucesso pelo Resend', {
@@ -129,9 +131,9 @@ async function sendVerificationEmail(toEmail, code, recipientName) {
       });
       return { id: response.data?.id, provider: 'resend' };
     } catch (resendErr) {
-      logger.warn('Falha na tentativa pelo Resend, tentando fallback SMTP...', {
+      logger.warn('Tentativa via Resend não concluída, ativando failover automático via SMTP Gmail...', {
         email: cleanToEmail,
-        error: resendErr.message
+        motivo: resendErr.message
       });
     }
   }
