@@ -14,6 +14,9 @@ router.patch('/users/:id/badge', adminController.toggleUserBadge);
 router.put('/users/:id/status', adminController.changeUserStatus);
 router.post('/users/:id/ban', adminController.banUser);
 router.delete('/users/:id/ban', adminController.unbanUser);
+router.post('/users/:id/reset-data', adminController.resetUserData);
+router.delete('/users/:id/data', adminController.resetUserData);
+router.delete('/users/:id', adminController.deleteUser);
 router.post('/purge-deleted-accounts', adminController.purgeDeletedAccounts);
 
 router.get('/reports', adminController.listReports);

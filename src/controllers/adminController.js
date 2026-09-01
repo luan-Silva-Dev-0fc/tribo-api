@@ -417,6 +417,43 @@ async function updatePlatformStatus(req, res, next) {
   }
 }
 
+async function resetUserData(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+    const user = await userModel.getUserById(id);
+    if (!user) {
+      return res.status(404).json({ message: "Usuário não encontrado" });
+    }
+    const updated = await userModel.wipeUserData(id);
+    logger.warn(`[Admin] Todos os dados do usuário @${user.username || user.name} (${id}) foram resetados por ${req.user.email}. Motivo: ${reason || 'N/A'}`);
+    return res.status(200).json({
+      message: `Todos os dados (posts, comentários, curtidas, mensagens, seguidores) de @${user.username || user.name} foram excluídos com sucesso.`,
+      user: updated
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function deleteUser(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+    const user = await userModel.getUserById(id);
+    if (!user) {
+      return res.status(404).json({ message: "Usuário não encontrado" });
+    }
+    await userModel.deleteUserCompletely(id);
+    logger.warn(`[Admin] Conta e todos os dados do usuário @${user.username || user.name} (${id}) foram excluídos definitivamente por ${req.user.email}. Motivo: ${reason || 'N/A'}`);
+    return res.status(200).json({
+      message: `A conta e todos os dados de @${user.username || user.name} foram excluídos permanentemente.`
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   listUsers,
   listReports,
@@ -428,6 +465,8 @@ module.exports = {
   unbanUser,
   changeUserStatus,
   purgeDeletedAccounts,
+  resetUserData,
+  deleteUser,
   getAppSettings,
   updateAppSettings,
   getPlatformStatus,

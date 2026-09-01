@@ -554,6 +554,68 @@ async function getUnverifiedUsers(limit = 50, offset = 0) {
   };
 }
 
+async function wipeUserData(userId) {
+  return await sql.begin(async (tx) => {
+    // 1. Comments
+    await tx`DELETE FROM comments WHERE user_id = ${userId} OR author_id = ${userId}`;
+    // 2. Likes, Reposts, Saves & Interactions
+    await tx`DELETE FROM likes WHERE user_id = ${userId}`;
+    await tx`DELETE FROM reposts WHERE user_id = ${userId}`;
+    await tx`DELETE FROM saved_posts WHERE user_id = ${userId}`;
+    await tx`DELETE FROM reel_likes WHERE user_id = ${userId}`;
+    await tx`DELETE FROM user_reel_interactions WHERE user_id = ${userId}`;
+    await tx`DELETE FROM user_reel_preferences WHERE user_id = ${userId}`;
+    // 3. Stories
+    await tx`DELETE FROM story_likes WHERE user_id = ${userId}`;
+    await tx`DELETE FROM story_views WHERE user_id = ${userId}`;
+    await tx`DELETE FROM stories WHERE user_id = ${userId}`;
+    // 4. Audio tracks & Stickers
+    await tx`DELETE FROM tracks WHERE user_id = ${userId}`;
+    await tx`DELETE FROM sticker_favorites WHERE user_id = ${userId}`;
+    await tx`DELETE FROM stickers WHERE user_id = ${userId}`;
+    // 5. Messages & Conversations
+    await tx`DELETE FROM messages WHERE sender_id = ${userId}`;
+    await tx`DELETE FROM conversation_members WHERE user_id = ${userId}`;
+    // 6. Group Content & Memberships
+    await tx`DELETE FROM group_post_comments WHERE user_id = ${userId}`;
+    await tx`DELETE FROM group_post_likes WHERE user_id = ${userId}`;
+    await tx`DELETE FROM group_saved_posts WHERE user_id = ${userId}`;
+    await tx`DELETE FROM group_messages WHERE user_id = ${userId}`;
+    await tx`DELETE FROM group_posts WHERE user_id = ${userId}`;
+    await tx`DELETE FROM group_members WHERE user_id = ${userId}`;
+    await tx`DELETE FROM group_bans WHERE user_id = ${userId}`;
+    await tx`DELETE FROM group_reports WHERE user_id = ${userId}`;
+    await tx`DELETE FROM group_notification_settings WHERE user_id = ${userId}`;
+    // 7. Social Graph, Notifications, Blocks & Tokens
+    await tx`DELETE FROM notifications WHERE user_id = ${userId} OR sender_id = ${userId}`;
+    await tx`DELETE FROM follows WHERE follower_id = ${userId} OR following_id = ${userId}`;
+    await tx`DELETE FROM blocks WHERE blocker_id = ${userId} OR blocked_id = ${userId}`;
+    await tx`DELETE FROM blocked_users WHERE blocker_id = ${userId} OR blocked_id = ${userId}`;
+    await tx`DELETE FROM user_push_tokens WHERE user_id = ${userId}`;
+    // 8. Feed Posts
+    await tx`DELETE FROM posts WHERE user_id = ${userId} OR author_id = ${userId}`;
+    // 9. Reset User Profile Data (keeps credentials, resets public content)
+    const [updatedUser] = await tx`
+      UPDATE users
+      SET
+        bio = NULL,
+        avatar = NULL,
+        avatar_url = NULL,
+        banner = NULL,
+        updated_at = NOW()
+      WHERE id = ${userId}
+      RETURNING id, name, username, email, status, badge_type;
+    `;
+    return updatedUser;
+  });
+}
+
+async function deleteUserCompletely(userId) {
+  await wipeUserData(userId);
+  await sql`DELETE FROM users WHERE id = ${userId}`;
+  return { success: true, id: userId };
+}
+
 module.exports = {
   getAllUsers,
   searchUsers,
@@ -564,6 +626,8 @@ module.exports = {
   getAdminUsersList,
   updateUser,
   deleteUser,
+  wipeUserData,
+  deleteUserCompletely,
   scheduleAccountDeletion,
   cancelAccountDeletion,
   getDeletionStatus,
