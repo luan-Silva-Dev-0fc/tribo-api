@@ -11,8 +11,8 @@ const { apiLimiter } = require('./middlewares/rateLimiter');
 
 const app = express();
 
-// Confiança total no proxy do Railway para leitura do IP real
-app.set('trust proxy', true);
+// Confiança no primeiro proxy reverso (Railway / Cloudflare edge)
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(

@@ -1,8 +1,3 @@
-const dns = require('dns');
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder('ipv4first');
-}
-
 const { createClient } = require('@supabase/supabase-js');
 const postgres = require('postgres');
 const env = require('./env');
@@ -13,9 +8,12 @@ const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_KEY, {
 
 const sql = postgres(env.DATABASE_URL, {
   ssl: { rejectUnauthorized: false },
-  connect_timeout: 15,
-  max: 20,
-  idle_timeout: 30
+  connect_timeout: 30,
+  idle_timeout: 60,
+  max_lifetime: 60 * 30,
+  max: 15,
+  prepare: false,
+  onnotice: () => {}
 });
 
 module.exports = { supabase, sql };
