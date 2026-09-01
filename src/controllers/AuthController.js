@@ -6,7 +6,8 @@ const {
   findUserById,
   findUserByUsername,
   findUserByIdentifier,
-  updateUserByEmail
+  updateUserByEmail,
+  updateUserById
 } = require("../models/authModel");
 const { signToken } = require("../services/jwt");
 const { logger } = require("../utils/logger");
